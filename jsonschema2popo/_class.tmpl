@@ -1,0 +1,121 @@
+{% macro get_type(prop, parent=True, sub=True) %}{{ parent and prop._type.parent or sub and prop._type.subtype.__name__ or sub and prop._type.subtype or prop._type.type.__name__ or prop._type.type or None}}{% endmacro %}
+
+{% macro type_check(prop, name=None) %}
+{% if prop._type and prop._type.type %}
+if not isinstance({{ name or prop._name }}, {{ get_type(prop, sub=False) }}):
+    raise TypeError("{{prop._name}} must be {{ get_type(prop, sub=False) }}")
+{% endif %}
+{% if prop._type and prop._type.type.__name__ == 'list' and prop._type.subtype %}
+if not all(isinstance(i, {{ get_type(prop) }}) for i in {% if name %}{{ name }}{% else %}{{ prop._name }}{% endif %}):
+    raise TypeError("{{prop._name}} list values must be {{ get_type(prop) }}")
+{% endif %}
+{% endmacro %}
+
+{% if enum_used %}
+import enum
+{% endif %}
+
+{% macro generate_class(model) %}
+class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}:
+{% for subModel in model.subModels %}
+    {{ generate_class(subModel)|indent(8) }}
+{% endfor %}
+
+{% if use_slots and not model.enum %}
+    __slots__ = [{% for prop in model.properties %}"__{{ prop._name }}", {% endfor %}]
+{% endif %}
+
+{% if model.enum %}
+{% for name, value in model.enum.items() %}
+    {{name}} = {% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %}
+
+{% endfor %}
+{% endif %}
+
+{% if model.properties %}
+    _types_map = {
+{% for prop in model.properties %}
+        '{{prop._name}}': {'type': {{prop._type.type.__name__ or prop._type.type or None}}, 'subtype': {{prop._type.subtype.__name__ or prop._type.subtype or None}}},
+{% endfor %}
+    }
+    _formats_map = {
+{% for prop in model.properties if prop._format %}
+        '{{prop._name}}': '{{prop._format}}',
+{% endfor %}
+    }
+{% endif %}
+
+{% if not model.enum %}
+    def __init__(self
+{% for prop in model.properties %}
+            , {{prop._name}}{% if use_types %}: {{ get_type(prop, False) }}{% endif %}={{prop._default}}
+{% endfor %}
+            ):
+        pass
+{% if constructor_type_check %}
+{% for prop in model.properties %}
+        {{ type_check(prop)|indent(8) }}
+{% endfor %}
+{% endif %}
+{% for prop in model.properties %}
+        self.__{{prop._name}} = {{prop._name}}
+{% endfor %}
+{% endif %}
+    
+{% for prop in model.properties %}
+    def _get_{{prop._name}}(self):
+        return self.__{{prop._name}}
+    def _set_{{prop._name}}(self, value):
+        {{ type_check(prop, "value")|indent(8) }}
+        self.__{{prop._name}} = value
+    {{prop._name}} = property(_get_{{prop._name}}, _set_{{prop._name}})
+    
+{% endfor %}
+
+    @staticmethod
+    def from_dict(d):
+{% if model.enum %}
+        return {{ model.parent or model.name }}(d)
+{% else %}
+        v = {}
+{% for prop in model.properties %}
+        if "{{ prop._name }}" in d:
+            {{ type_check(prop, "d[\"" + prop._name + "\"]")|indent(12) }}
+{% if prop._type.type.__name__ == 'list' %}
+            v["{{ prop._name }}"] = [{{ get_type(prop) }}.from_dict(p) if hasattr({{ get_type(prop) }}, 'from_dict') else p for p in d["{{ prop._name }}"]]
+{% else %}
+            v["{{ prop._name }}"] = {{ get_type(prop) }}.from_dict(d["{{prop._name}}"]) if hasattr({{ get_type(prop) }}, 'from_dict') else d["{{ prop._name }}"]
+{% endif %}
+{% endfor %}
+        return {{ model.parent or model.name }}(**v)
+{% endif %}
+
+
+    def as_dict(self):
+{% if model.enum %}
+        return self.value
+{% else %}
+        d = {}
+{% for prop in model.properties %}
+        if self.__{{prop._name}} is not None:
+{% if prop._type.type.__name__ == 'list' %}
+            d['{{prop._name}}'] = [p.as_dict() if hasattr(p, 'as_dict') else p for p in self.__{{prop._name}}]
+{% else %}
+            d['{{prop._name}}'] = self.__{{prop._name}}.as_dict() if hasattr(self.__{{prop._name}}, 'as_dict') else self.__{{prop._name}}
+{% endif %}
+{% endfor %}
+        return d
+{% endif %}
+
+    def __repr__(self):
+{% if model.enum %}
+        return "<Enum {{model.name}}. {}: {}>".format(self.name, self.value)
+{% else %}
+        return "<Class {{model.name}}. {{ model.properties|map(attribute="_name")|map('regex_replace', '(.+)', '\\1: {}')|join(', ') }}>".format({{ model.properties|map(attribute="_name")|map('regex_replace', '(.+)', 'self.__\\1')|join(', ') }})
+{% endif %}
+{% endmacro %}
+
+
+{% for model in models %}
+{{ generate_class(model) }}
+{% endfor %}
