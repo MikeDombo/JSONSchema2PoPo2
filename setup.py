@@ -20,7 +20,7 @@ def find_version(*file_paths):
 
 
 setup(
-    name="jsonschema2popo2",
+    name="JSONSchema2PoPo2",
     version=find_version("jsonschema2popo", "__init__.py"),
     description="Converts a JSON Schema to a Plain Old Python Object class",
     long_description=read("README.md"),
@@ -42,7 +42,7 @@ setup(
     keywords="python json-schema code-generator",
     license="MIT License",
     python_requires=">=3.4",
-    install_requires=["Jinja2>=2.10", "networkx==1.9"],
+    install_requires=["Jinja2>=2.10.1", "networkx==1.9"],
     packages=["jsonschema2popo"],
     package_data={"jsonschema2popo": ["_class.tmpl"]},
     include_package_data=True,
