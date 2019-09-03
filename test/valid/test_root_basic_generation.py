@@ -1,6 +1,3 @@
-#!/usr/bin/env/python
-
-
 class Abcd:
     class _Object:
         def __init__(self):

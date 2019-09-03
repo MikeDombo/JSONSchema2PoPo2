@@ -1,6 +1,3 @@
-#!/usr/bin/env/python
-
-
 class Abcd:
     class _Child1:
         class _Child2:

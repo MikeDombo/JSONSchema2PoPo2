@@ -250,8 +250,8 @@ class JsonSchema2Popo:
                 if (
                     _type == str
                     and "media" in t["type"]
-                    and "format" in t["type"]["media"]
-                    and t["type"]["media"]["format"] == "base64"
+                    and "binaryEncoding" in t["type"]["media"]
+                    and t["type"]["media"]["binaryEncoding"] == "base64"
                 ):
                     _type = bytearray
         elif "$ref" in t:
