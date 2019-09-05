@@ -80,7 +80,6 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}:
         v = {}
 {% for prop in model.properties %}
         if "{{ prop._name }}" in d:
-            {{ type_check(prop, "d[\"" + prop._name + "\"]")|indent(12) }}
 {% if prop._type.type.__name__ == 'list' %}
             v["{{ prop._name }}"] = [{{ get_type(prop) }}.from_dict(p) if hasattr({{ get_type(prop) }}, 'from_dict') else p for p in d["{{ prop._name }}"]]
 {% else %}

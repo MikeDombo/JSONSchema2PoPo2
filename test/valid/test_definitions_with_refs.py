@@ -37,16 +37,10 @@ class ABcd:
     def from_dict(d):
         v = {}
         if "Child1" in d:
-            if not isinstance(d["Child1"], int):
-                raise TypeError("Child1 must be int")
-
             v["Child1"] = (
                 int.from_dict(d["Child1"]) if hasattr(int, "from_dict") else d["Child1"]
             )
         if "Child2" in d:
-            if not isinstance(d["Child2"], str):
-                raise TypeError("Child2 must be str")
-
             v["Child2"] = (
                 str.from_dict(d["Child2"]) if hasattr(str, "from_dict") else d["Child2"]
             )
@@ -98,9 +92,6 @@ class SubRef:
     def from_dict(d):
         v = {}
         if "ChildA" in d:
-            if not isinstance(d["ChildA"], ABcd):
-                raise TypeError("ChildA must be ABcd")
-
             v["ChildA"] = (
                 ABcd.from_dict(d["ChildA"])
                 if hasattr(ABcd, "from_dict")
@@ -161,16 +152,10 @@ class DirectRef:
     def from_dict(d):
         v = {}
         if "Child1" in d:
-            if not isinstance(d["Child1"], int):
-                raise TypeError("Child1 must be int")
-
             v["Child1"] = (
                 int.from_dict(d["Child1"]) if hasattr(int, "from_dict") else d["Child1"]
             )
         if "Child2" in d:
-            if not isinstance(d["Child2"], str):
-                raise TypeError("Child2 must be str")
-
             v["Child2"] = (
                 str.from_dict(d["Child2"]) if hasattr(str, "from_dict") else d["Child2"]
             )

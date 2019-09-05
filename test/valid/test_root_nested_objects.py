@@ -41,20 +41,12 @@ class Abcd:
             def from_dict(d):
                 v = {}
                 if "IntVal" in d:
-                    if not isinstance(d["IntVal"], int):
-                        raise TypeError("IntVal must be int")
-
                     v["IntVal"] = (
                         int.from_dict(d["IntVal"])
                         if hasattr(int, "from_dict")
                         else d["IntVal"]
                     )
                 if "ListVal" in d:
-                    if not isinstance(d["ListVal"], list):
-                        raise TypeError("ListVal must be list")
-                    if not all(isinstance(i, str) for i in d["ListVal"]):
-                        raise TypeError("ListVal list values must be str")
-
                     v["ListVal"] = [
                         str.from_dict(p) if hasattr(str, "from_dict") else p
                         for p in d["ListVal"]
@@ -118,18 +110,12 @@ class Abcd:
         def from_dict(d):
             v = {}
             if "IntVal" in d:
-                if not isinstance(d["IntVal"], int):
-                    raise TypeError("IntVal must be int")
-
                 v["IntVal"] = (
                     int.from_dict(d["IntVal"])
                     if hasattr(int, "from_dict")
                     else d["IntVal"]
                 )
             if "Child2" in d:
-                if not isinstance(d["Child2"], Abcd._Child1._Child2):
-                    raise TypeError("Child2 must be Abcd._Child1._Child2")
-
                 v["Child2"] = (
                     Abcd._Child1._Child2.from_dict(d["Child2"])
                     if hasattr(Abcd._Child1._Child2, "from_dict")
@@ -180,9 +166,6 @@ class Abcd:
     def from_dict(d):
         v = {}
         if "Child1" in d:
-            if not isinstance(d["Child1"], Abcd._Child1):
-                raise TypeError("Child1 must be Abcd._Child1")
-
             v["Child1"] = (
                 Abcd._Child1.from_dict(d["Child1"])
                 if hasattr(Abcd._Child1, "from_dict")

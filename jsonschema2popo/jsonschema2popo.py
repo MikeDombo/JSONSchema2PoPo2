@@ -253,7 +253,7 @@ class JsonSchema2Popo:
                     and "binaryEncoding" in t["media"]
                     and t["media"]["binaryEncoding"] == "base64"
                 ):
-                    _type = bytearray
+                    _type = bytes
         elif "$ref" in t:
             _type = t["$ref"].split("/")[-1]
         elif "anyOf" in t or "allOf" in t or "oneOf" in t:
