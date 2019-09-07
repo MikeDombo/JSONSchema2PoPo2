@@ -5,3 +5,4 @@ include *.md
 include LICENSE.txt
 
 include jsonschema2popo/_class.tmpl
+include test/valid/*
