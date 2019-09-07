@@ -96,6 +96,9 @@ class JsonSchema2Popo:
     def definition_parser(self, _obj_name, _obj, sub_model=""):
         model = {"name": _obj_name, "subModels": [], "parent": sub_model}
 
+        if "description" in _obj:
+            model["comment"] = _obj["description"]
+
         if "$ref" in _obj and _obj["$ref"].startswith("#/definitions/"):
             # References defined at a top level should be copied from what it is referencing
             ref_path = _obj["$ref"].split("/")[2:]
@@ -143,10 +146,14 @@ class JsonSchema2Popo:
             for _prop_name, _prop in _obj["properties"].items():
                 _type = self.type_parser(_prop)
                 _default = None
+                _comment = None
                 if "default" in _prop:
                     _default = _type["type"](_prop["default"])
                     if _type["type"] == str:
                         _default = "'{}'".format(_default)
+
+                if "description" in _prop:
+                    _comment = _prop["description"]
 
                 read_list = self.definitions[:]
                 read_list.append(model)
@@ -207,8 +214,10 @@ class JsonSchema2Popo:
                     "_type": _type,
                     "_default": _default,
                     "_format": _format,
+                    "_comment": _comment
                 }
                 model["properties"].append(prop)
+        model["propertiesHaveComment"] = any(p["_comment"] for p in model["properties"])
         return model
 
     def type_parser(self, t):

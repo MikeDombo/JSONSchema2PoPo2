@@ -17,6 +17,11 @@ import enum
 
 {% macro generate_class(model) %}
 class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}:
+{% if model.comment %}
+    """
+    {{ model.comment }}
+    """
+{% endif %}
 {% for subModel in model.subModels %}
     {{ generate_class(subModel)|indent(8) }}
 {% endfor %}
@@ -51,6 +56,15 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}:
             , {{prop._name}}{% if use_types %}: {{ get_type(prop, False) }}{% endif %}={{prop._default}}
 {% endfor %}
             ):
+{% if model.propertiesHaveComment %}
+        """
+{% for prop in model.properties %}
+{% if prop._comment %}
+        :param {{ prop._name }}: {{ prop._comment }}
+{% endif %}
+{% endfor %}
+        """
+{% endif %}
         pass
 {% if constructor_type_check %}
 {% for prop in model.properties %}
