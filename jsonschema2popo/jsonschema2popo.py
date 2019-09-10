@@ -146,7 +146,7 @@ class JsonSchema2Popo:
             ref = "._".join(ref_path)
             if sub_model and sub_model.endswith(_obj_name):
                 subs = sub_model.split(".")[-1]
-                ref = ref[len(sub_model) - len(subs):]
+                ref = ref[len(sub_model) - len(subs) :]
             model["extends"] = ref
 
         model["properties"] = []
@@ -222,7 +222,7 @@ class JsonSchema2Popo:
                     "_type": _type,
                     "_default": _default,
                     "_format": _format,
-                    "_comment": _comment
+                    "_comment": _comment,
                 }
                 model["properties"].append(prop)
         model["propertiesHaveComment"] = any(p["_comment"] for p in model["properties"])
