@@ -141,6 +141,14 @@ class JsonSchema2Popo:
             model["enum"] = enum
             self.enum_used = True
 
+        if "extends" in _obj and "$ref" in _obj["extends"]:
+            ref_path = _obj["extends"]["$ref"].split("/")[2:]
+            ref = "._".join(ref_path)
+            if sub_model and sub_model.endswith(_obj_name):
+                subs = sub_model.split(".")[-1]
+                ref = ref[len(sub_model) - len(subs):]
+            model["extends"] = ref
+
         model["properties"] = []
         if "properties" in _obj:
             for _prop_name, _prop in _obj["properties"].items():

@@ -16,7 +16,7 @@ import enum
 {% endif %}
 
 {% macro generate_class(model) %}
-class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}:
+class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}{% if model.extends %}({{ model.extends }}){% endif %}:
 {% if model.comment %}
     """
     {{ model.comment }}
@@ -52,9 +52,15 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}:
 
 {% if not model.enum %}
     def __init__(self
+{% if model.extends %}
+            , *args
+{% endif %}
 {% for prop in model.properties %}
             , {{prop._name}}{% if use_types %}: {{ get_type(prop, False) }}{% endif %}={{prop._default}}
 {% endfor %}
+{% if model.extends %}
+            , **kwargs
+{% endif %}
             ):
 {% if model.propertiesHaveComment %}
         """
@@ -64,6 +70,9 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}:
 {% endif %}
 {% endfor %}
         """
+{% endif %}
+{% if model.extends %}
+        super().__init__(*args, **kwargs)
 {% endif %}
         pass
 {% if constructor_type_check %}
@@ -91,7 +100,11 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}:
 {% if model.enum %}
         return {{ model.parent or model.name }}(d)
 {% else %}
+{% if model.extends %}
+        v = d.copy()
+{% else %}
         v = {}
+{% endif %}
 {% for prop in model.properties %}
         if "{{ prop._name }}" in d:
 {% if prop._type.type.__name__ == 'list' %}
@@ -108,7 +121,11 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}:
 {% if model.enum %}
         return self.value
 {% else %}
+{% if model.extends %}
+        d = super().as_dict()
+{% else %}
         d = {}
+{% endif %}
 {% for prop in model.properties %}
         if self.__{{prop._name}} is not None:
 {% if prop._type.type.__name__ == 'list' %}
