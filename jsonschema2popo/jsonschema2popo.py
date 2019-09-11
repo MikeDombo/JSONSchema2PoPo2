@@ -219,7 +219,15 @@ class JsonSchema2Popo:
                     _format = _prop["items"][0]["format"]
 
                 _validations = {}
-                validation_types = ["maximum", "minimum", "maxItems", "minItems", "minLength", "maxLength", "pattern"]
+                validation_types = [
+                    "maximum",
+                    "minimum",
+                    "maxItems",
+                    "minItems",
+                    "minLength",
+                    "maxLength",
+                    "pattern",
+                ]
                 for t in validation_types:
                     if t in _prop:
                         _validations[t] = _prop[t]
