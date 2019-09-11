@@ -218,7 +218,7 @@ class JsonSchema2Popo:
                 ):
                     _format = _prop["items"][0]["format"]
 
-                _validations = {}
+                _validations = {"required": False}
                 validation_types = [
                     "maximum",
                     "minimum",
@@ -235,6 +235,8 @@ class JsonSchema2Popo:
                         array_validation = _prop["items"]
                         if t in array_validation:
                             _validations[t] = array_validation[t]
+                if "required" in _obj and _prop_name in _obj["required"]:
+                    _validations["required"] = True
 
                 prop = {
                     "_name": _prop_name,

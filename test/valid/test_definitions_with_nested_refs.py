@@ -7,7 +7,10 @@ class ABcd:
                 "ListVal": {"type": list, "subtype": str},
             }
             _formats_map = {}
-            _validations_map = {}
+            _validations_map = {
+                "IntVal": {"required": False},
+                "ListVal": {"required": False},
+            }
 
             def __init__(self, IntVal=None, ListVal=None):
                 pass
@@ -79,7 +82,10 @@ class ABcd:
             "Child2": {"type": _Child2, "subtype": None},
         }
         _formats_map = {}
-        _validations_map = {}
+        _validations_map = {
+            "IntVal": {"required": False},
+            "Child2": {"required": False},
+        }
 
         def __init__(self, IntVal=None, Child2=None):
             pass
@@ -148,7 +154,7 @@ class ABcd:
 
     _types_map = {"Child1": {"type": _Child1, "subtype": None}}
     _formats_map = {}
-    _validations_map = {}
+    _validations_map = {"Child1": {"required": False}}
 
     def __init__(self, Child1=None):
         pass
@@ -197,7 +203,7 @@ class Ref:
         "ListVal": {"type": list, "subtype": str},
     }
     _formats_map = {}
-    _validations_map = {}
+    _validations_map = {"IntVal": {"required": False}, "ListVal": {"required": False}}
 
     def __init__(self, IntVal=None, ListVal=None):
         pass
@@ -269,7 +275,7 @@ class AAAA:
         "YRef": {"type": ABcd._Child1._Child2, "subtype": None},
     }
     _formats_map = {}
-    _validations_map = {}
+    _validations_map = {"X": {"required": False}, "YRef": {"required": False}}
 
     def __init__(self, X=None, YRef=None):
         pass
