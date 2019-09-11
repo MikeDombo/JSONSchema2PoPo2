@@ -1,4 +1,7 @@
 {% macro get_type(prop, parent=True, sub=True) %}{{ parent and prop._type.parent or sub and prop._type.subtype.__name__ or sub and prop._type.subtype or prop._type.type.__name__ or prop._type.type or None}}{% endmacro %}
+{% macro get_typing(prop) %}
+{% if prop._type and prop._type.type.__name__ == 'list' and prop._type.subtype %}List[{{ get_type(prop, False) }}]
+{% else %}{{ get_type(prop, False) }}{% endif %}{% endmacro %}
 
 {% macro type_check(prop, name=None) %}
 {% if prop._type and prop._type.type %}
@@ -13,6 +16,9 @@ if not all(isinstance(i, {{ get_type(prop) }}) for i in {% if name %}{{ name }}{
 
 {% if enum_used %}
 import enum
+{% endif %}
+{% if use_types and list_used %}
+from typing import List
 {% endif %}
 
 {% macro generate_class(model) %}
@@ -56,7 +62,7 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}{% if model.extends
             , *args
 {% endif %}
 {% for prop in model.properties %}
-            , {{prop._name}}{% if use_types %}: {{ get_type(prop, False) }}{% endif %}={{prop._default}}
+            , {{prop._name}}{% if use_types %}: {{ get_typing(prop) }}{% endif %}={{prop._default}}
 {% endfor %}
 {% if model.extends %}
             , **kwargs

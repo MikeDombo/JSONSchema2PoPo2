@@ -36,6 +36,7 @@ class JsonSchema2Popo:
             yield something
 
     def __init__(self, use_types=False, constructor_type_check=False, use_slots=False):
+        self.list_used = False
         self.enum_used = False
         self.jinja = Environment(
             loader=FileSystemLoader(searchpath=SCRIPT_DIR), trim_blocks=True
@@ -233,6 +234,7 @@ class JsonSchema2Popo:
         _subtype = None
         if "type" in t:
             if t["type"] == "array" and "items" in t:
+                self.list_used = True
                 _type = self.J2P_TYPES[t["type"]]
                 if isinstance(t["items"], list):
                     if "type" in t["items"][0]:
@@ -283,6 +285,7 @@ class JsonSchema2Popo:
             use_types=self.use_types,
             constructor_type_check=self.constructor_type_check,
             enum_used=self.enum_used,
+            list_used=self.list_used,
             use_slots=self.use_slots,
         ).dump(filename)
         if hasattr(filename, "close"):
