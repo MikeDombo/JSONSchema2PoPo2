@@ -25,7 +25,7 @@ from typing import List
 class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}{% if model.extends %}({{ model.extends }}){% endif %}:
 {% if model.comment %}
     """
-    {{ model.comment }}
+    {{ model.comment | indent(4) }}
     """
 {% endif %}
 {% for subModel in model.subModels %}
@@ -77,7 +77,7 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}{% if model.extends
         """
 {% for prop in model.properties %}
 {% if prop._comment %}
-        :param {{ prop._name }}: {{ prop._comment }}
+        :param {{ prop._name }}: {{ prop._comment | indent(12) }}
 {% endif %}
 {% endfor %}
         """
