@@ -7,6 +7,7 @@ class Abcd:
                 "ListVal": {"type": list, "subtype": str},
             }
             _formats_map = {}
+            _validations_map = {}
 
             def __init__(self, IntVal=None, ListVal=None):
                 pass
@@ -78,6 +79,7 @@ class Abcd:
             "Child2": {"type": _Child2, "subtype": None},
         }
         _formats_map = {}
+        _validations_map = {}
 
         def __init__(self, IntVal=None, Child2=None):
             pass
@@ -146,6 +148,7 @@ class Abcd:
 
     _types_map = {"Child1": {"type": _Child1, "subtype": None}}
     _formats_map = {}
+    _validations_map = {}
 
     def __init__(self, Child1=None):
         pass

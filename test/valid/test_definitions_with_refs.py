@@ -5,6 +5,7 @@ class ABcd:
         "Child2": {"type": str, "subtype": None},
     }
     _formats_map = {}
+    _validations_map = {}
 
     def __init__(self, Child1=None, Child2=None):
         pass
@@ -72,6 +73,7 @@ class SubRef:
 
     _types_map = {"ChildA": {"type": ABcd, "subtype": None}}
     _formats_map = {}
+    _validations_map = {}
 
     def __init__(self, ChildA=None):
         pass
@@ -120,6 +122,7 @@ class DirectRef:
         "Child2": {"type": str, "subtype": None},
     }
     _formats_map = {}
+    _validations_map = {}
 
     def __init__(self, Child1=None, Child2=None):
         pass

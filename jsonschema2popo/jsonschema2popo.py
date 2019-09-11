@@ -218,12 +218,23 @@ class JsonSchema2Popo:
                 ):
                     _format = _prop["items"][0]["format"]
 
+                _validations = {}
+                validation_types = ["maximum", "minimum", "maxItems", "minItems", "minLength", "maxLength", "pattern"]
+                for t in validation_types:
+                    if t in _prop:
+                        _validations[t] = _prop[t]
+                    if _type["type"] == list and "items" in _prop:
+                        array_validation = _prop["items"]
+                        if t in array_validation:
+                            _validations[t] = array_validation[t]
+
                 prop = {
                     "_name": _prop_name,
                     "_type": _type,
                     "_default": _default,
                     "_format": _format,
                     "_comment": _comment,
+                    "_validations": _validations,
                 }
                 model["properties"].append(prop)
         model["propertiesHaveComment"] = any(p["_comment"] for p in model["properties"])

@@ -54,6 +54,11 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}{% if model.extends
         '{{prop._name}}': '{{prop._format}}',
 {% endfor %}
     }
+    _validations_map = {
+{% for prop in model.properties if prop._validations %}
+        '{{ prop._name }}': { {% for type, value in prop._validations.items() %}'{{ type }}': {% if type == "pattern" %}'{{ value }}'{% else %}{{ value }}{% endif %}{% endfor %}},
+{% endfor %}
+    }
 {% endif %}
 
 {% if not model.enum %}

@@ -23,6 +23,7 @@ class Abcd:
         "Object": {"type": _Object, "subtype": None},
     }
     _formats_map = {}
+    _validations_map = {}
 
     def __init__(self, Int=None, Float=None, ListInt=None, String=None, Object=None):
         pass
