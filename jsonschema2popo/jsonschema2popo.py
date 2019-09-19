@@ -187,6 +187,15 @@ class JsonSchema2Popo:
                         if path.endswith(parent_name) and len(path) > len(parent_name):
                             parent_name = path
 
+                if _type["type"] == list and _type["subtype"] == type:
+                    _type["subtype"] = "_" + _prop_name
+                    _type["parent"] = parent_name
+                    model["subModels"].append(
+                        self.definition_parser(
+                            "_" + _prop_name, _prop["items"], sub_model=parent_name
+                        )
+                    )
+
                 if "$ref" in _prop and _prop["$ref"].startswith("#/definitions/"):
                     # Properties with references should reference the existing defined classes
                     ref = _prop["$ref"].split("/")[2:]
