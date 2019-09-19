@@ -382,6 +382,43 @@ class JsonSchema2Popo(unittest.TestCase):
             self.test_file, "valid/test_list_definitions_with_nested_object.py"
         )
 
+    def test_list_definitions_with_ref(self):
+        loader = jsonschema2popo.JsonSchema2Popo(
+            use_types=False, constructor_type_check=False
+        )
+        loader.process(
+            json.loads(
+"""{
+    "definitions": {
+        "A": {
+            "type": "object",
+            "properties": {
+                "prop1": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/B"
+                    }
+                }
+            }
+        },
+        "B": {
+            "type": "object",
+            "properties": {
+                "prop1": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}"""
+            )
+        )
+        loader.write_file(self.test_file)
+        format_file(self.test_file)
+        self.assertFileEqual(
+            self.test_file, "valid/test_list_definitions_with_ref.py"
+        )
+
     def assertFileEqual(self, filename1, filename2, message=""):
         with io.open(filename1) as f1:
             with io.open(filename2) as f2:
