@@ -21,6 +21,8 @@ jsonschema2popo2 -o /path/to/output_file.py /path/to/json_schema.json
 - -t, --use-types - Add MyPy typings.
 - -ct, --constructor-type-check - Validate provided types in constructor. Default only type checks when setting property values and not when setting them in the constructor.
 - -s, --use-slots - Add a `__slots__` to each generated class to be more memory efficient.
+- --no-generate-from-definitions - Don't generate any classes from the "definitions" section of the schema.
+- --no-generate-from-root-object - Don't generate any classes from the root of the schema.
 
 ### Encode Generated Object to JSON:
 ```python

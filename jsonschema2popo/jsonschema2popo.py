@@ -35,7 +35,8 @@ class JsonSchema2Popo:
         else:
             yield something
 
-    def __init__(self, use_types=False, constructor_type_check=False, use_slots=False):
+    def __init__(self, use_types=False, constructor_type_check=False, use_slots=False, generate_definitions=True,
+                 generate_root=True):
         self.list_used = False
         self.enum_used = False
         self.jinja = Environment(
@@ -47,6 +48,8 @@ class JsonSchema2Popo:
         self.use_types = use_types
         self.use_slots = use_slots
         self.constructor_type_check = constructor_type_check
+        self.generate_root = generate_root
+        self.generate_definitions = generate_definitions
 
         self.definitions = []
 
@@ -80,9 +83,10 @@ class JsonSchema2Popo:
                     g.add_edge(model["name"], dep)
 
             self.definitions = []
-            for model_name in networkx.topological_sort(g, reverse=True):
-                if model_name in models_map:
-                    self.definitions.append(models_map[model_name])
+            if self.generate_definitions:
+                for model_name in networkx.topological_sort(g, reverse=True):
+                    if model_name in models_map:
+                        self.definitions.append(models_map[model_name])
 
         # create root object if there are some properties in the root
         if "title" in json_schema:
@@ -91,8 +95,9 @@ class JsonSchema2Popo:
             )
         else:
             root_object_name = "RootObject"
-        root_model = self.definition_parser(root_object_name, json_schema)
-        self.definitions.append(root_model)
+        if self.generate_root:
+            root_model = self.definition_parser(root_object_name, json_schema)
+            self.definitions.append(root_model)
 
     def definition_parser(self, _obj_name, _obj, sub_model=""):
         model = {"name": _obj_name, "subModels": [], "parent": sub_model}
@@ -348,6 +353,16 @@ def init_parser():
     parser.add_argument(
         "-s", "--use_slots", action="store_true", help="Generate class with __slots__."
     )
+    parser.add_argument(
+        "--no-generate-from-definitions", action="store_false",
+        help="Don't generate classes from \"definitions\" section of the schema.",
+        default=True
+    )
+    parser.add_argument(
+        "--no-generate-from-root-object", action="store_false",
+        help="Don't generate classes from root of the schema.",
+        default=True
+    )
     return parser
 
 
@@ -373,6 +388,8 @@ def main():
         use_types=args.use_types,
         constructor_type_check=args.constructor_type_check,
         use_slots=args.use_slots,
+        generate_definitions=args.no_generate_from_definitions,
+        generate_root=args.no_generate_from_root_object
     )
     loader.load(args.json_schema_file)
 
