@@ -388,7 +388,7 @@ class JsonSchema2Popo(unittest.TestCase):
         )
         loader.process(
             json.loads(
-"""{
+                """{
     "definitions": {
         "A": {
             "type": "object",
@@ -415,9 +415,7 @@ class JsonSchema2Popo(unittest.TestCase):
         )
         loader.write_file(self.test_file)
         format_file(self.test_file)
-        self.assertFileEqual(
-            self.test_file, "valid/test_list_definitions_with_ref.py"
-        )
+        self.assertFileEqual(self.test_file, "valid/test_list_definitions_with_ref.py")
 
     def assertFileEqual(self, filename1, filename2, message=""):
         with io.open(filename1) as f1:

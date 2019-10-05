@@ -23,6 +23,7 @@ jsonschema2popo2 -o /path/to/output_file.py /path/to/json_schema.json
 - -s, --use-slots - Add a `__slots__` to each generated class to be more memory efficient.
 - --no-generate-from-definitions - Don't generate any classes from the "definitions" section of the schema.
 - --no-generate-from-root-object - Don't generate any classes from the root of the schema.
+- -tp, --translate-properties - Translate property names to be snake_case. With this enabled, inner classes will no longer be prefixed by "_" since their names won't collide with the property name.
 
 ### Encode Generated Object to JSON:
 ```python

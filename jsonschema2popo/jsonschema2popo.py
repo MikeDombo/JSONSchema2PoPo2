@@ -35,8 +35,15 @@ class JsonSchema2Popo:
         else:
             yield something
 
-    def __init__(self, use_types=False, constructor_type_check=False, use_slots=False, generate_definitions=True,
-                 generate_root=True):
+    def __init__(
+        self,
+        use_types=False,
+        constructor_type_check=False,
+        use_slots=False,
+        generate_definitions=True,
+        generate_root=True,
+        translate_properties=False,
+    ):
         self.list_used = False
         self.enum_used = False
         self.jinja = Environment(
@@ -50,6 +57,7 @@ class JsonSchema2Popo:
         self.constructor_type_check = constructor_type_check
         self.generate_root = generate_root
         self.generate_definitions = generate_definitions
+        self.translate_properties = translate_properties
 
         self.definitions = []
 
@@ -105,10 +113,17 @@ class JsonSchema2Popo:
         if "description" in _obj:
             model["comment"] = _obj["description"]
 
+        join_str = "._"
+        if self.translate_properties:
+            join_str = "."
+        sub_prefix = "_"
+        if self.translate_properties:
+            sub_prefix = ""
+
         if "$ref" in _obj and _obj["$ref"].startswith("#/definitions/"):
             # References defined at a top level should be copied from what it is referencing
             ref_path = _obj["$ref"].split("/")[2:]
-            ref = "._".join(ref_path)
+            ref = join_str.join(ref_path)
 
             for model in self.definitions:
                 if model["name"] in ref_path:
@@ -121,7 +136,7 @@ class JsonSchema2Popo:
                         i = i + 1
 
                         if "subModels" in subModel:
-                            if subModel["name"].lstrip("_") in ref_path:
+                            if self.strip_sub_prefix(subModel["name"]) in ref_path:
                                 built_path = built_path + "." + subModel["name"]
                                 subModels = subModel["subModels"]
                                 model = subModel
@@ -129,7 +144,9 @@ class JsonSchema2Popo:
                         if built_path == ref:
                             break
 
-                    if ref_path[len(ref_path) - 1] == model["name"].lstrip("_"):
+                    if ref_path[len(ref_path) - 1] == self.strip_sub_prefix(
+                        model["name"]
+                    ):
                         model = model.copy()
                         model["name"] = _obj_name
                         return model
@@ -149,7 +166,7 @@ class JsonSchema2Popo:
 
         if "extends" in _obj and "$ref" in _obj["extends"]:
             ref_path = _obj["extends"]["$ref"].split("/")[2:]
-            ref = "._".join(ref_path)
+            ref = join_str.join(ref_path)
             if sub_model and sub_model.endswith(_obj_name):
                 subs = sub_model.split(".")[-1]
                 ref = ref[len(sub_model) - len(subs) :]
@@ -185,37 +202,39 @@ class JsonSchema2Popo:
                     )
                 )
 
-                parent_name = sub_model + "._" + _prop_name
+                parent_name = sub_model + join_str + _prop_name
                 if not sub_model:
-                    parent_name = _obj_name + "._" + _prop_name
+                    parent_name = _obj_name + join_str + _prop_name
                     for path in potential_paths:
                         if path.endswith(parent_name) and len(path) > len(parent_name):
                             parent_name = path
 
                 if _type["type"] == list and _type["subtype"] == type:
-                    _type["subtype"] = "_" + _prop_name
+                    _type["subtype"] = sub_prefix + _prop_name
                     _type["parent"] = parent_name
                     model["subModels"].append(
                         self.definition_parser(
-                            "_" + _prop_name, _prop["items"], sub_model=parent_name
+                            sub_prefix + _prop_name,
+                            _prop["items"],
+                            sub_model=parent_name,
                         )
                     )
 
                 if "$ref" in _prop and _prop["$ref"].startswith("#/definitions/"):
                     # Properties with references should reference the existing defined classes
                     ref = _prop["$ref"].split("/")[2:]
-                    _type = {"type": "._".join(ref), "subtype": None}
+                    _type = {"type": join_str.join(ref), "subtype": None}
 
                 if ("type" in _prop and _prop["type"] == "object") or "enum" in _prop:
                     _type = {
-                        "type": "_" + _prop_name,
+                        "type": sub_prefix + _prop_name,
                         "subtype": None,
                         "parent": parent_name,
                     }
 
                     model["subModels"].append(
                         self.definition_parser(
-                            "_" + _prop_name, _prop, sub_model=parent_name
+                            sub_prefix + _prop_name, _prop, sub_model=parent_name
                         )
                     )
 
@@ -253,7 +272,7 @@ class JsonSchema2Popo:
                     _validations["required"] = True
 
                 prop = {
-                    "_name": _prop_name,
+                    "_name": self.get_prop_name(_prop_name),
                     "_type": _type,
                     "_default": _default,
                     "_format": _format,
@@ -326,6 +345,17 @@ class JsonSchema2Popo:
         if hasattr(filename, "close"):
             filename.close()
 
+    def get_prop_name(self, name):
+        if not self.translate_properties:
+            return name
+        s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+        return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+
+    def strip_sub_prefix(self, name):
+        if self.translate_properties:
+            return name
+        return name.lstrip("_")
+
 
 def init_parser():
     parser = argparse.ArgumentParser(
@@ -354,14 +384,22 @@ def init_parser():
         "-s", "--use_slots", action="store_true", help="Generate class with __slots__."
     )
     parser.add_argument(
-        "--no-generate-from-definitions", action="store_false",
-        help="Don't generate classes from \"definitions\" section of the schema.",
-        default=True
+        "--no-generate-from-definitions",
+        action="store_false",
+        help='Don\'t generate classes from "definitions" section of the schema.',
+        default=True,
     )
     parser.add_argument(
-        "--no-generate-from-root-object", action="store_false",
+        "--no-generate-from-root-object",
+        action="store_false",
         help="Don't generate classes from root of the schema.",
-        default=True
+        default=True,
+    )
+    parser.add_argument(
+        "-tp",
+        "--translate-properties",
+        action="store_true",
+        help="Translate property names into snake_case.",
     )
     return parser
 
@@ -389,7 +427,8 @@ def main():
         constructor_type_check=args.constructor_type_check,
         use_slots=args.use_slots,
         generate_definitions=args.no_generate_from_definitions,
-        generate_root=args.no_generate_from_root_object
+        generate_root=args.no_generate_from_root_object,
+        translate_properties=args.translate_properties,
     )
     loader.load(args.json_schema_file)
 
