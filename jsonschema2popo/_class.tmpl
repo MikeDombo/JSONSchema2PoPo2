@@ -117,11 +117,11 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}{% if model.extends
         v = {}
 {% endif %}
 {% for prop in model.properties %}
-        if "{{ prop._name }}" in d:
+        if "{{ prop._original_name }}" in d:
 {% if prop._type.type.__name__ == 'list' %}
-            v["{{ prop._name }}"] = [{{ get_type(prop) }}.from_dict(p) if hasattr({{ get_type(prop) }}, 'from_dict') else p for p in d["{{ prop._name }}"]]
+            v["{{ prop._original_name }}"] = [{{ get_type(prop) }}.from_dict(p) if hasattr({{ get_type(prop) }}, 'from_dict') else p for p in d["{{ prop._original_name }}"]]
 {% else %}
-            v["{{ prop._name }}"] = {{ get_type(prop) }}.from_dict(d["{{prop._name}}"]) if hasattr({{ get_type(prop) }}, 'from_dict') else d["{{ prop._name }}"]
+            v["{{ prop._original_name }}"] = {{ get_type(prop) }}.from_dict(d["{{prop._original_name}}"]) if hasattr({{ get_type(prop) }}, 'from_dict') else d["{{ prop._original_name }}"]
 {% endif %}
 {% endfor %}
         return {{ model.parent or model.name }}(**v)
@@ -140,9 +140,9 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}{% if model.extends
 {% for prop in model.properties %}
         if self.__{{prop._name}} is not None:
 {% if prop._type.type.__name__ == 'list' %}
-            d['{{prop._name}}'] = [p.as_dict() if hasattr(p, 'as_dict') else p for p in self.__{{prop._name}}]
+            d['{{prop._original_name}}'] = [p.as_dict() if hasattr(p, 'as_dict') else p for p in self.__{{prop._name}}]
 {% else %}
-            d['{{prop._name}}'] = self.__{{prop._name}}.as_dict() if hasattr(self.__{{prop._name}}, 'as_dict') else self.__{{prop._name}}
+            d['{{prop._original_name}}'] = self.__{{prop._name}}.as_dict() if hasattr(self.__{{prop._name}}, 'as_dict') else self.__{{prop._name}}
 {% endif %}
 {% endfor %}
         return d

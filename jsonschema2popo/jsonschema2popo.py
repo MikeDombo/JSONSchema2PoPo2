@@ -273,6 +273,7 @@ class JsonSchema2Popo:
 
                 prop = {
                     "_name": self.get_prop_name(_prop_name),
+                    "_original_name": _prop_name,
                     "_type": _type,
                     "_default": _default,
                     "_format": _format,
