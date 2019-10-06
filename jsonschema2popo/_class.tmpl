@@ -119,9 +119,9 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}{% if model.extends
 {% for prop in model.properties %}
         if "{{ prop._original_name }}" in d:
 {% if prop._type.type.__name__ == 'list' %}
-            v["{{ prop._original_name }}"] = [{{ get_type(prop) }}.from_dict(p) if hasattr({{ get_type(prop) }}, 'from_dict') else p for p in d["{{ prop._original_name }}"]]
+            v["{{ prop._name }}"] = [{{ get_type(prop) }}.from_dict(p) if hasattr({{ get_type(prop) }}, 'from_dict') else p for p in d["{{ prop._original_name }}"]]
 {% else %}
-            v["{{ prop._original_name }}"] = {{ get_type(prop) }}.from_dict(d["{{prop._original_name}}"]) if hasattr({{ get_type(prop) }}, 'from_dict') else d["{{ prop._original_name }}"]
+            v["{{ prop._name }}"] = {{ get_type(prop) }}.from_dict(d["{{prop._original_name}}"]) if hasattr({{ get_type(prop) }}, 'from_dict') else d["{{ prop._original_name }}"]
 {% endif %}
 {% endfor %}
         return {{ model.parent or model.name }}(**v)
