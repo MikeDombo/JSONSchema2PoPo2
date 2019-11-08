@@ -103,6 +103,11 @@ class {{model.name}}{% if model.enum %}(enum.Enum){% endif %}{% if model.extends
         {{ type_check(prop, "value")|indent(8) }}
         self.__{{prop._name}} = value
     {{prop._name}} = property(_get_{{prop._name}}, _set_{{prop._name}})
+{% if prop._comment %}
+    """
+    {{ prop._comment | indent(4) }}
+    """
+{% endif %}
     
 {% endfor %}
 
