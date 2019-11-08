@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.16
+
+-   Add comments to properties
+
 ## 2.0.15
 
 -   Bugfix for `as_dict` and `from_dict` when translating property names so that the output dictionary has the original property names for `as_dict` and
