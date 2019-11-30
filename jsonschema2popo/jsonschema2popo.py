@@ -15,7 +15,10 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 class JsonSchema2Popo:
     """Converts a JSON Schema to a Plain Old Python Object class"""
 
-    CLASS_TEMPLATE_FNAME = "_class.tmpl"
+    PYTHON_CLASS_TEMPLATE_FNAME = "python_class.tmpl"
+    JS_CLASS_TEMPLATE_FNAME = "js_class.tmpl"
+
+    TEMPLATES = {"python": PYTHON_CLASS_TEMPLATE_FNAME, "js": JS_CLASS_TEMPLATE_FNAME}
 
     J2P_TYPES = {
         "string": str,
@@ -43,6 +46,7 @@ class JsonSchema2Popo:
         generate_definitions=True,
         generate_root=True,
         translate_properties=False,
+        language="python"
     ):
         self.list_used = False
         self.enum_used = False
@@ -58,6 +62,7 @@ class JsonSchema2Popo:
         self.generate_root = generate_root
         self.generate_definitions = generate_definitions
         self.translate_properties = translate_properties
+        self.language = language
 
         self.definitions = []
 
@@ -335,7 +340,7 @@ class JsonSchema2Popo:
         return {"type": _type, "subtype": _subtype}
 
     def write_file(self, filename):
-        self.jinja.get_template(self.CLASS_TEMPLATE_FNAME).stream(
+        self.jinja.get_template(self.TEMPLATES[self.language]).stream(
             models=self.definitions,
             use_types=self.use_types,
             constructor_type_check=self.constructor_type_check,
@@ -402,6 +407,12 @@ def init_parser():
         action="store_true",
         help="Translate property names into snake_case.",
     )
+    parser.add_argument(
+        "-l",
+        "--language",
+        choices=JsonSchema2Popo.TEMPLATES.keys(),
+        help="Which language to generate in",
+    )
     return parser
 
 
@@ -430,6 +441,7 @@ def main():
         generate_definitions=args.no_generate_from_definitions,
         generate_root=args.no_generate_from_root_object,
         translate_properties=args.translate_properties,
+        language=args.language,
     )
     loader.load(args.json_schema_file)
 

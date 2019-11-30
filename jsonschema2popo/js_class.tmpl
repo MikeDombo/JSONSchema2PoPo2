@@ -1,0 +1,198 @@
+{%- macro translate_type(type) -%}
+{%- if type is none -%}
+null
+{%- elif type == "str" -%}
+String
+{%- elif type == "list" -%}
+Array
+{%- elif type == "int" or type == "float" -%}
+Number
+{%- else -%}
+{{ type }}
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro check_type(type, var) -%}
+{%- if type == "String" -%}
+typeof {{ var }} === "string"
+{%- elif type == "Array" -%}
+{{ var }} instanceof "Array"
+{%- elif type == "Number" -%}
+typeof {{ var }} === "number"
+{%- else -%}
+{{ var }} instanceof {{ type }}
+{%- endif -%}
+{%- endmacro -%}
+
+{% macro translate_bool(bool) %}
+{% if bool == True %}
+true
+{% elif bool == False %}
+false
+{% elif bool is none %}
+null
+{% else %}
+{{ bool }}
+{% endif %}
+{% endmacro %}
+
+{% macro get_type(prop, parent=True, sub=True) -%}{{ translate_type(parent and prop._type.parent or sub and prop._type.subtype.__name__ or sub and prop._type.subtype or prop._type.type.__name__ or prop._type.type or None)-}}{%- endmacro -%}
+{% macro type_check(prop, name=None) %}
+{% if prop._type and prop._type.type %}
+if (!({{ check_type(get_type(prop, parent=prop._type.type.__name__ != "list", sub=False), name or prop._name) }})) {
+    throw "{{prop._name}} must be {{get_type(prop, parent=prop._type.type.__name__ != "list", sub=False)-}}";
+}
+{% endif %}
+{% if prop._type and prop._type.type.__name__ == 'list' and prop._type.subtype %}
+if (!{{ name or prop._name }}.every((v) => {{ check_type(get_type(prop), "v") }})) {
+    throw "{{prop._name}} array values must be {{ get_type(prop)-}}";
+}
+{% endif %}
+{% endmacro %}
+
+{%- macro generate_class(model) -%}
+class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %} {
+{% if model.comment %}
+    /**
+    {{ model.comment | indent(4) }}
+    */
+{% endif %}
+
+{% if model.enum %}
+    #options = {
+{% for name, value in model.enum.items() %}
+        {{ name }}: {% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %},
+{% endfor %}
+    };
+
+{% for name, value in model.enum.items() %}
+    static {{name}}() {
+        return new {{ model.name }}({% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %});
+    }
+{% endfor %}
+{% endif %}
+
+{% if model.properties %}
+    _typesMap = {
+{% for prop in model.properties %}
+        {{prop._name}}: {'type': {{get_type(prop, sub=False)}}, 'subtype': {{translate_type(prop._type.subtype.__name__ or prop._type.subtype or None)}}},
+{% endfor %}
+    };
+    _formatsMap = {
+{% for prop in model.properties if prop._format %}
+        {{prop._name}}: '{{prop._format}}',
+{% endfor %}
+    };
+    _validations_map = {
+{% for prop in model.properties if prop._validations %}
+        '{{ prop._name }}': { {% for type, value in prop._validations.items() %}'{{ type }}': {% if type == "pattern" %}'{{ value }}'{% else %}{{ translate_bool(value) }}{% endif %},{% endfor %}},
+{% endfor %}
+    };
+{% endif %}
+
+{% if not model.enum %}
+    constructor(
+{% for prop in model.properties %}
+            {{prop._name}}={{translate_bool(prop._default)}},
+{% endfor %}
+            ) {
+{% if model.propertiesHaveComment %}
+        /**
+{% for prop in model.properties %}
+{% if prop._comment %}
+        @param {{ prop._name }}: {{ prop._comment | indent(12) }}
+{% endif %}
+{% endfor %}
+        */
+{% endif %}
+{% if constructor_type_check %}
+{% for prop in model.properties %}
+        {{ type_check(prop)|indent(8) }}
+{% endfor %}
+{% endif %}
+{% for prop in model.properties %}
+        this.__{{prop._name}} = {{prop._name}};
+{% endfor %}
+    }
+{% else %}
+    #value = null;
+    constructor(value=null) {
+        if (!(value in Object.values(this.#options))) {
+            throw "Value must be one of the enumerated options";
+        }
+        this.#value = value;
+    }
+{% endif %}
+
+{% for prop in model.properties %}
+{% if prop._comment %}
+    /**
+    {{ prop._comment | indent(4) }}
+    */
+{% endif %}
+    get {{prop._name}}() {
+        return this.__{{prop._name}};
+    }
+    set {{prop._name}}(value) {
+        {{ type_check(prop, "value")|indent(8) }}
+        this.__{{prop._name}} = value;
+    }
+
+{% endfor %}
+
+    static fromMap(d) {
+{% if model.enum %}
+        return new {{ model.name }}(d);
+{% else %}
+{% if model.extends %}
+        const v = d.copy();
+{% else %}
+        const v = { {% for prop in model.properties %}{{prop._name}}:{{translate_bool(prop._default)}},{% endfor %}};
+{% endif %}
+{% for prop in model.properties %}
+        if ("{{ prop._original_name }}" in d) {
+{% if prop._type.type.__name__ == 'list' %}
+            v["{{ prop._name }}"] = d["{{ prop._original_name }}"].reduce((acc, v) => {acc.push("fromMap" in {{ get_type(prop) }} ? {{ get_type(prop) }}.fromMap(v) : v); return acc;}, []);
+{% else %}
+            v["{{ prop._name }}"] = {{ get_type(prop) }}.__proto__.hasOwnProperty("fromMap") ? {{ get_type(prop) }}.fromMap(d["{{prop._original_name}}"]) : d["{{ prop._original_name }}"];
+{% endif %}
+        }
+{% endfor %}
+        return new {{ model.parent or model.name }}(...(Object.values(v)));
+{% endif %}
+    }
+
+
+    asMap() {
+{% if model.enum %}
+        return this.#value;
+{% else %}
+{% if model.extends %}
+        const d = super().asMap();
+{% else %}
+        const d = {};
+{% endif %}
+{% for prop in model.properties %}
+        if (this.__{{prop._name}} !== null) {
+{% if prop._type.type.__name__ == "list" %}
+            d["{{prop._original_name}}"] = this.__{{prop._name}}.reduce((acc, v) => {acc.push(v.__proto__.hasOwnProperty("asMap") ? v.asMap() : v); return acc;}, []);
+{% else %}
+            d["{{prop._original_name}}"] = this.__{{prop._name}}.__proto__.hasOwnProperty("asMap") ? this.__{{prop._name}}.asMap() : this.__{{prop._name}};
+{% endif %}
+        }
+{% endfor %}
+        return d;
+{% endif %}
+    }
+};
+
+{% for subModel in model.subModels %}
+{{ model.name }}.{{ subModel.name }} = {{generate_class(subModel)|indent(4)}}
+{% endfor %}
+{% endmacro %}
+
+
+{%- for model in models %}
+{{-generate_class(model)}}
+
+{% endfor %}
