@@ -1,3 +1,6 @@
+{% macro sentence_case(text) -%}
+    {{ text[0]|upper}}{{text[1:] }}
+{%- endmacro -%}
 {%- macro translate_type(type) -%}
 {%- if type is none -%}
 null
@@ -16,7 +19,7 @@ Number
 {%- if type == "String" -%}
 typeof {{ var }} === "string"
 {%- elif type == "Array" -%}
-{{ var }} instanceof "Array"
+{{ var }} instanceof Array
 {%- elif type == "Number" -%}
 typeof {{ var }} === "number"
 {%- else -%}
@@ -136,6 +139,10 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
     set {{prop._name}}(value) {
         {{ type_check(prop, "value")|indent(8) }}
         this.__{{prop._name}} = value;
+    }
+    with{{sentence_case(prop._name)}}(value) {
+        this.{{prop._name}} = value;
+        return this;
     }
 
 {% endfor %}
