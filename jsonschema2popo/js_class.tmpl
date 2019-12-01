@@ -28,9 +28,9 @@ typeof {{ var }} === "number"
 {%- endmacro -%}
 
 {% macro translate_bool(bool) %}
-{% if bool == True %}
+{% if bool is sameas True %}
 true
-{% elif bool == False %}
+{% elif bool is sameas False %}
 false
 {% elif bool is none %}
 null
@@ -54,13 +54,12 @@ if (!{{ name or prop._name }}.every((v) => {{ check_type(get_type(prop), "v") }}
 {% endmacro %}
 
 {%- macro generate_class(model) -%}
-class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %} {
 {% if model.comment %}
-    /**
-    {{ model.comment | indent(4) }}
-    */
+/**
+ * {{ model.comment | indent(4) }}
+ */
 {% endif %}
-
+class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %} {
 {% if model.enum %}
     #options = {
 {% for name, value in model.enum.items() %}
@@ -69,7 +68,10 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
     };
 
 {% for name, value in model.enum.items() %}
-    static {{name}}() {
+    /**
+     * {{ name }}
+     */
+    static get {{name}}() {
         return new {{ model.name }}({% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %});
     }
 {% endfor %}
@@ -92,29 +94,32 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% endfor %}
     };
 {% endif %}
+{% for prop in model.properties %}
+    #__{{prop._name}} = null;
+{% endfor %}
 
 {% if not model.enum %}
+{% if model.propertiesHaveComment %}
+    /**
+{% for prop in model.properties %}
+{% if prop._comment %}
+     * @param {{ prop._name }} {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %} {{ prop._comment | indent(4) }}
+{% endif %}
+{% endfor %}
+     */
+{% endif %}
     constructor(
 {% for prop in model.properties %}
             {{prop._name}}={{translate_bool(prop._default)}},
 {% endfor %}
             ) {
-{% if model.propertiesHaveComment %}
-        /**
-{% for prop in model.properties %}
-{% if prop._comment %}
-        @param {{ prop._name }}: {{ prop._comment | indent(12) }}
-{% endif %}
-{% endfor %}
-        */
-{% endif %}
 {% if constructor_type_check %}
 {% for prop in model.properties %}
         {{ type_check(prop)|indent(8) }}
 {% endfor %}
 {% endif %}
 {% for prop in model.properties %}
-        this.__{{prop._name}} = {{prop._name}};
+        this.#__{{prop._name}} = {{prop._name}};
 {% endfor %}
     }
 {% else %}
@@ -130,15 +135,15 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% for prop in model.properties %}
 {% if prop._comment %}
     /**
-    {{ prop._comment | indent(4) }}
-    */
+     * {{ prop._comment | indent(4) }}
+     */
 {% endif %}
     get {{prop._name}}() {
-        return this.__{{prop._name}};
+        return this.#__{{prop._name}};
     }
     set {{prop._name}}(value) {
         {{ type_check(prop, "value")|indent(8) }}
-        this.__{{prop._name}} = value;
+        this.#__{{prop._name}} = value;
     }
     with{{sentence_case(prop._name)}}(value) {
         this.{{prop._name}} = value;
@@ -180,11 +185,11 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
         const d = {};
 {% endif %}
 {% for prop in model.properties %}
-        if (this.__{{prop._name}} !== null) {
+        if (this.{{prop._name}} !== null) {
 {% if prop._type.type.__name__ == "list" %}
-            d["{{prop._original_name}}"] = this.__{{prop._name}}.reduce((acc, v) => {acc.push(v.__proto__.hasOwnProperty("asMap") ? v.asMap() : v); return acc;}, []);
+            d["{{prop._original_name}}"] = this.{{prop._name}}.reduce((acc, v) => {acc.push(v.__proto__.hasOwnProperty("asMap") ? v.asMap() : v); return acc;}, []);
 {% else %}
-            d["{{prop._original_name}}"] = this.__{{prop._name}}.__proto__.hasOwnProperty("asMap") ? this.__{{prop._name}}.asMap() : this.__{{prop._name}};
+            d["{{prop._original_name}}"] = this.{{prop._name}}.__proto__.hasOwnProperty("asMap") ? this.{{prop._name}}.asMap() : this.{{prop._name}};
 {% endif %}
         }
 {% endfor %}
