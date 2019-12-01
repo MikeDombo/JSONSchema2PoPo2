@@ -112,7 +112,13 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% for prop in model.properties %}
             {{prop._name}}={{translate_bool(prop._default)}},
 {% endfor %}
+{% if model.extends %}
+            ...superArgs
+{% endif %}
             ) {
+{% if model.extends %}
+        super(...superArgs);
+{% endif %}
 {% if constructor_type_check %}
 {% for prop in model.properties %}
         {{ type_check(prop)|indent(8) }}
@@ -157,7 +163,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
         return new {{ model.name }}(d);
 {% else %}
 {% if model.extends %}
-        const v = d.copy();
+        const v = { {% for prop in model.properties %}{{prop._name}}:{{translate_bool(prop._default)}},{% endfor %} ...d};
 {% else %}
         const v = { {% for prop in model.properties %}{{prop._name}}:{{translate_bool(prop._default)}},{% endfor %}};
 {% endif %}
@@ -180,7 +186,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
         return this.#value;
 {% else %}
 {% if model.extends %}
-        const d = super().asMap();
+        const d = super.asMap();
 {% else %}
         const d = {};
 {% endif %}
