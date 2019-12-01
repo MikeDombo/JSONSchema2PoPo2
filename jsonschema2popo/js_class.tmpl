@@ -8,6 +8,8 @@ null
 String
 {%- elif type == "list" -%}
 Array
+{%- elif type == "bytes" -%}
+Buffer
 {%- elif type == "int" or type == "float" -%}
 Number
 {%- else -%}
@@ -18,8 +20,6 @@ Number
 {%- macro check_type(type, var) -%}
 {%- if type == "String" -%}
 typeof {{ var }} === "string"
-{%- elif type == "Array" -%}
-{{ var }} instanceof Array
 {%- elif type == "Number" -%}
 typeof {{ var }} === "number"
 {%- else -%}
