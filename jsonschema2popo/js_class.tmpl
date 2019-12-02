@@ -42,7 +42,7 @@ null
 {% macro get_type(prop, parent=True, sub=True) -%}{{ translate_type(parent and prop._type.parent or sub and prop._type.subtype.__name__ or sub and prop._type.subtype or prop._type.type.__name__ or prop._type.type or None)-}}{%- endmacro -%}
 {% macro type_check(prop, name=None) %}
 {% if prop._type and prop._type.type %}
-if (!({{ check_type(get_type(prop, parent=prop._type.type.__name__ != "list", sub=False), name or prop._name) }})) {
+if ({{ name or prop._name }} !== null && !({{ check_type(get_type(prop, parent=prop._type.type.__name__ != "list", sub=False), name or prop._name) }})) {
     throw "{{prop._name}} must be {{get_type(prop, parent=prop._type.type.__name__ != "list", sub=False)-}}";
 }
 {% endif %}
@@ -176,7 +176,11 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% endif %}
         }
 {% endfor %}
-        return new {{ model.parent or model.name }}(...(Object.values(v)));
+        const ret = new {{ model.parent or model.name }}();
+        for (const [key, value] of Object.entries(v)) {
+            ret[key] = value;
+        }
+        return ret;
 {% endif %}
     }
 
