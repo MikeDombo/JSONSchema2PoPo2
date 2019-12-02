@@ -60,7 +60,7 @@ if ({{ name or prop._name }} !== null && !{{ name or prop._name }}.every((v) => 
 {%- macro generate_class(model) -%}
 {% if model.comment %}
 /**
- * {{ model.comment | indent(7) }}
+ * {{ model.comment | indent(3) }}
  */
 {% endif %}
 class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %} {
@@ -70,17 +70,6 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
         {{ name }}: {% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %},
 {% endfor %}
     };
-
-{% for name, value in model.enum.items() %}
-    /**
-     * {{ name }}
-     * @returns {% raw %}{{% endraw %}{{model.name}}{% raw %}}{% endraw %}
-
-     */
-    static get {{name}}() {
-        return new {{ model.name }}({% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %});
-    }
-{% endfor %}
 {% endif %}
 
 {% if model.properties %}
@@ -211,6 +200,19 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% endif %}
     }
 };
+{% if model.enum %}
+
+{% for name, value in model.enum.items() %}
+/**
+ * @member {% raw %}{{% endraw %}{{ model.name }}{% raw %}}{% endraw %} {{ name }}
+ * @memberof {{ model.name }}#
+ * @readonly
+ */
+Object.defineProperty({{ model.name }}, "{{ name }}", {
+    value: new {{ model.name }}({% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %})
+});
+{% endfor %}
+{% endif %}
 
 {% for subModel in model.subModels %}
 {{ model.name }}.{{ subModel.name }} = {{generate_class(subModel)|indent(4)}}
