@@ -1,6 +1,9 @@
 {% macro sentence_case(text) -%}
     {{ text[0]|upper}}{{text[1:] }}
 {%- endmacro -%}
+{% macro jsdoc_param(name, prop) %}
+@param {{ name }} {% raw %}{{% endraw %}{% if not get_type(prop).startswith(get_type(prop, parent=False)) %}{{ get_type(prop)[:get_type(prop).find(get_type(prop, parent=False))-1] }}~{{ get_type(prop) }}{% else %}{{ get_type(prop) }}{% endif %}{% if get_type(prop, parent=False, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
+{% endmacro %}
 {%- macro translate_type(type) -%}
 {%- if type is none -%}
 null
@@ -78,7 +81,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% if not model.enum %}
     /**
 {% for prop in model.properties %}
-     * @param {{ prop._name }} {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, parent=False, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %} {% if prop._comment %}{{ prop._comment | indent(7) }}{% endif %}
+     * {{ jsdoc_param(prop._name, prop) }} {% if prop._comment %}{{ prop._comment | indent(7) }}{% endif %}
 
 {% endfor %}
      */
@@ -123,16 +126,14 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
         return this.#__{{prop._name}};
     }
     /**
-     * @param value {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, parent=False, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
-
+     * {{ jsdoc_param("value", prop) }}
      */
     set {{prop._name}}(value) {
         {{ type_check(prop, "value")|indent(8) }}
         this.#__{{prop._name}} = value;
     }
     /**
-     * @param value {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, parent=False, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
-
+     * {{ jsdoc_param("value", prop) }}
      * @returns {% raw %}{{% endraw %}{{ model.name }}{% raw %}}{% endraw %}
 
      */
@@ -187,7 +188,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% for name, value in model.enum.items() %}
 /**
  * @member {% raw %}{{% endraw %}{{ model.name }}{% raw %}}{% endraw %} {{ name }}
- * @memberof {{ model.name }}#
+ * @memberOf {{ model.name }}#
  * @readonly
  */
 Object.defineProperty({{ model.parent or model.name }}, "{{ name }}", {
