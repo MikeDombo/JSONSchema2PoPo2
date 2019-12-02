@@ -200,7 +200,11 @@ Object.defineProperty({{ model.parent or model.name }}, "{{ name }}", {
 Object.defineProperty({{ model.parent or model.name }}, "typesMap", {
     value: {
 {% for prop in model.properties %}
-        {{prop._name}}: {'type': {{translate_type(prop._type.type.__name__ or prop._type.type or None)}}, 'subtype': {{translate_type(prop._type.parent or prop._type.subtype.__name__ or prop._type.subtype or None)}}},
+{% if get_type(prop, parent=False, sub=False) == "Array" %}
+    {{prop._name}}: {'type': Array, 'subtype': {{translate_type(prop._type.parent or prop._type.subtype.__name__ or prop._type.subtype or None)}}},
+{% else %}
+    {{prop._name}}: {'type': {{get_type(prop, parent=True, sub=False)}}, 'subtype': null},
+{% endif %}
 {% endfor %}
     }
 });
