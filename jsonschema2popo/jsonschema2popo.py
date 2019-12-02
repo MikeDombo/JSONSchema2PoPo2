@@ -412,6 +412,7 @@ def init_parser():
         "--language",
         choices=JsonSchema2Popo.TEMPLATES.keys(),
         help="Which language to generate in",
+        default="python"
     )
     return parser
 

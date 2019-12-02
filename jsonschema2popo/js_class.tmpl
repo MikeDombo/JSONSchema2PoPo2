@@ -71,24 +71,6 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% endfor %}
     };
 {% endif %}
-
-{% if model.properties %}
-    _typesMap = {
-{% for prop in model.properties %}
-        {{prop._name}}: {'type': {{get_type(prop, sub=False)}}, 'subtype': {{translate_type(prop._type.subtype.__name__ or prop._type.subtype or None)}}},
-{% endfor %}
-    };
-    _formatsMap = {
-{% for prop in model.properties if prop._format %}
-        {{prop._name}}: '{{prop._format}}',
-{% endfor %}
-    };
-    _validations_map = {
-{% for prop in model.properties if prop._validations %}
-        '{{ prop._name }}': { {% for type, value in prop._validations.items() %}'{{ type }}': {% if type == "pattern" %}'{{ value }}'{% else %}{{ translate_bool(value) }}{% endif %},{% endfor %}},
-{% endfor %}
-    };
-{% endif %}
 {% for prop in model.properties %}
     #__{{prop._name}} = null;
 {% endfor %}
@@ -96,7 +78,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% if not model.enum %}
     /**
 {% for prop in model.properties %}
-     * @param {{ prop._name }} {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %} {% if prop._comment %}{{ prop._comment | indent(7) }}{% endif %}
+     * @param {{ prop._name }} {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, parent=False, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %} {% if prop._comment %}{{ prop._comment | indent(7) }}{% endif %}
 
 {% endfor %}
      */
@@ -132,16 +114,16 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 
 {% for prop in model.properties %}
     /**
-{% if prop._comment %}     * {{ prop._comment | indent(7) }}{% endif %}
-
-     * @returns {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
+{% if prop._comment %}     * {{ prop._comment | indent(7) }}
+{% endif %}
+     * @returns {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, parent=False, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
 
      */
     get {{prop._name}}() {
         return this.#__{{prop._name}};
     }
     /**
-     * @param value {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
+     * @param value {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, parent=False, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
 
      */
     set {{prop._name}}(value) {
@@ -149,7 +131,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
         this.#__{{prop._name}} = value;
     }
     /**
-     * @param value {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
+     * @param value {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, parent=False, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
 
      * @returns {% raw %}{{% endraw %}{{ model.name }}{% raw %}}{% endraw %}
 
@@ -208,10 +190,34 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
  * @memberof {{ model.name }}#
  * @readonly
  */
-Object.defineProperty({{ model.name }}, "{{ name }}", {
+Object.defineProperty({{ model.parent or model.name }}, "{{ name }}", {
     value: new {{ model.name }}({% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %})
 });
 {% endfor %}
+{% endif %}
+{% if model.properties %}
+
+Object.defineProperty({{ model.parent or model.name }}, "typesMap", {
+    value: {
+{% for prop in model.properties %}
+        {{prop._name}}: {'type': {{translate_type(prop._type.type.__name__ or prop._type.type or None)}}, 'subtype': {{translate_type(prop._type.parent or prop._type.subtype.__name__ or prop._type.subtype or None)}}},
+{% endfor %}
+    }
+});
+Object.defineProperty({{ model.parent or model.name }}, "formatsMap", {
+    value: {
+{% for prop in model.properties if prop._format %}
+        {{prop._name}}: '{{prop._format}}',
+{% endfor %}
+    }
+});
+Object.defineProperty({{ model.parent or model.name }}, "validationsMap", {
+    value: {
+{% for prop in model.properties if prop._validations %}
+        '{{ prop._name }}': { {% for type, value in prop._validations.items() %}'{{ type }}': {% if type == "pattern" %}'{{ value }}'{% else %}{{ translate_bool(value) }}{% endif %},{% endfor %}},
+{% endfor %}
+    }
+});
 {% endif %}
 
 {% for subModel in model.subModels %}
