@@ -416,7 +416,7 @@ def init_parser():
     return parser
 
 
-def format_file(filename):
+def format_python_file(filename):
     try:
         import black
 
@@ -426,6 +426,24 @@ def format_file(filename):
             fast=True,
             write_back=black.WriteBack.YES,
         )
+    except:
+        pass
+
+
+def format_js_file(filename):
+    try:
+        import jsbeautifier
+
+        format_opts = jsbeautifier.default_options()
+        format_opts.end_with_newline = True
+        format_opts.preserve_newlines = True
+        format_opts.max_preserve_newlines = 2
+        format_opts.wrap_line_length = 120
+
+        with open(filename, "r") as fr:
+            file = fr.read()
+            with open(filename, "w") as f:
+                f.write(jsbeautifier.beautify(file, opts=format_opts))
     except:
         pass
 
@@ -447,7 +465,10 @@ def main():
 
     outfile = args.output_file
     loader.write_file(outfile)
-    format_file(outfile.name)
+    if args.language == "python":
+        format_python_file(outfile.name)
+    elif args.language == "js":
+        format_js_file(outfile.name)
 
 
 if __name__ == "__main__":

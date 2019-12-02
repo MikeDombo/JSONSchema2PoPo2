@@ -3,7 +3,7 @@ import json
 import os
 import unittest
 from jsonschema2popo import jsonschema2popo
-from jsonschema2popo.jsonschema2popo import format_file
+from jsonschema2popo.jsonschema2popo import format_python_file
 
 
 class JsonSchema2Popo(unittest.TestCase):
@@ -45,7 +45,7 @@ class JsonSchema2Popo(unittest.TestCase):
             )
         )
         loader.write_file(self.test_file)
-        format_file(self.test_file)
+        format_python_file(self.test_file)
         self.assertFileEqual(self.test_file, "valid/test_root_basic_generation.py")
 
     def test_root_string_enum(self):
@@ -62,7 +62,7 @@ class JsonSchema2Popo(unittest.TestCase):
             )
         )
         loader.write_file(self.test_file)
-        format_file(self.test_file)
+        format_python_file(self.test_file)
         self.assertFileEqual(self.test_file, "valid/test_root_string_enum.py")
 
     def test_root_integer_enum(self):
@@ -80,7 +80,7 @@ class JsonSchema2Popo(unittest.TestCase):
             )
         )
         loader.write_file(self.test_file)
-        format_file(self.test_file)
+        format_python_file(self.test_file)
         self.assertFileEqual(self.test_file, "valid/test_root_integer_enum.py")
 
     def test_root_nested_objects(self):
@@ -120,7 +120,7 @@ class JsonSchema2Popo(unittest.TestCase):
             )
         )
         loader.write_file(self.test_file)
-        format_file(self.test_file)
+        format_python_file(self.test_file)
         self.assertFileEqual(self.test_file, "valid/test_root_nested_objects.py")
 
     def test_definitions_basic_generation(self):
@@ -159,7 +159,7 @@ class JsonSchema2Popo(unittest.TestCase):
             )
         )
         loader.write_file(self.test_file)
-        format_file(self.test_file)
+        format_python_file(self.test_file)
         self.assertFileEqual(
             self.test_file, "valid/test_definitions_basic_generation.py"
         )
@@ -181,7 +181,7 @@ class JsonSchema2Popo(unittest.TestCase):
             )
         )
         loader.write_file(self.test_file)
-        format_file(self.test_file)
+        format_python_file(self.test_file)
         self.assertFileEqual(self.test_file, "valid/test_definitions_string_enum.py")
 
     def test_definitions_integer_enum(self):
@@ -202,7 +202,7 @@ class JsonSchema2Popo(unittest.TestCase):
             )
         )
         loader.write_file(self.test_file)
-        format_file(self.test_file)
+        format_python_file(self.test_file)
         self.assertFileEqual(self.test_file, "valid/test_definitions_integer_enum.py")
 
     def test_definitions_nested_objects(self):
@@ -245,7 +245,7 @@ class JsonSchema2Popo(unittest.TestCase):
             )
         )
         loader.write_file(self.test_file)
-        format_file(self.test_file)
+        format_python_file(self.test_file)
         self.assertFileEqual(self.test_file, "valid/test_definitions_nested_objects.py")
 
     def test_definitions_with_refs(self):
@@ -283,7 +283,7 @@ class JsonSchema2Popo(unittest.TestCase):
             )
         )
         loader.write_file(self.test_file)
-        format_file(self.test_file)
+        format_python_file(self.test_file)
         self.assertFileEqual(self.test_file, "valid/test_definitions_with_refs.py")
 
     def test_definitions_with_nested_refs(self):
@@ -340,7 +340,7 @@ class JsonSchema2Popo(unittest.TestCase):
             )
         )
         loader.write_file(self.test_file)
-        format_file(self.test_file)
+        format_python_file(self.test_file)
         self.assertFileEqual(
             self.test_file, "valid/test_definitions_with_nested_refs.py"
         )
@@ -377,7 +377,7 @@ class JsonSchema2Popo(unittest.TestCase):
             )
         )
         loader.write_file(self.test_file)
-        format_file(self.test_file)
+        format_python_file(self.test_file)
         self.assertFileEqual(
             self.test_file, "valid/test_list_definitions_with_nested_object.py"
         )
@@ -414,7 +414,7 @@ class JsonSchema2Popo(unittest.TestCase):
             )
         )
         loader.write_file(self.test_file)
-        format_file(self.test_file)
+        format_python_file(self.test_file)
         self.assertFileEqual(self.test_file, "valid/test_list_definitions_with_ref.py")
 
     def assertFileEqual(self, filename1, filename2, message=""):
