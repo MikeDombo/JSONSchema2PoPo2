@@ -148,13 +148,15 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
         return new {{ model.name }}(d);
 {% else %}
         const ret = new {{ model.parent or model.name }}();
-        for (const [key, value] of Object.entries(d)) {
-            if (value instanceof Array) {
-                ret[key] = value.reduce((acc, v) => {acc.push(v.constructor.hasOwnProperty("fromMap") ? v.constructor.fromMap(v) : v); return acc;}, []);
-            } else {
-                ret[key] = value.constructor.hasOwnProperty("fromMap") ? value.constructor.fromMap(value) : value;
-            }
+{% for prop in model.properties %}
+        if ("{{ prop._original_name }}" in d) {
+{% if prop._type.type.__name__ == 'list' %}
+            ret.{{ prop._name }} = d["{{ prop._original_name }}"].reduce((acc, v) => {acc.push({{ get_type(prop) }}.hasOwnProperty("fromMap") ? {{ get_type(prop) }}.fromMap(v) : v); return acc;}, []);
+{% else %}
+            ret.{{ prop._name }} = {{ get_type(prop) }}.hasOwnProperty("fromMap") ? {{ get_type(prop) }}.fromMap(d["{{prop._original_name}}"]) : d["{{ prop._original_name }}"];
+{% endif %}
         }
+{% endfor %}
         return ret;
 {% endif %}
     }
