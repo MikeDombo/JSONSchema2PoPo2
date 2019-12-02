@@ -10,6 +10,8 @@ String
 Array
 {%- elif type == "bytes" -%}
 Buffer
+{%- elif type == "bool" -%}
+Boolean
 {%- elif type == "int" or type == "float" -%}
 Number
 {%- else -%}
@@ -20,6 +22,8 @@ Number
 {%- macro check_type(type, var) -%}
 {%- if type == "String" -%}
 typeof {{ var }} === "string"
+{%- elif type == "Boolean" -%}
+typeof {{ var }} === "boolean"
 {%- elif type == "Number" -%}
 typeof {{ var }} === "number"
 {%- else -%}
@@ -47,7 +51,7 @@ if ({{ name or prop._name }} !== null && !({{ check_type(get_type(prop, parent=p
 }
 {% endif %}
 {% if prop._type and prop._type.type.__name__ == 'list' and prop._type.subtype %}
-if (!{{ name or prop._name }}.every((v) => {{ check_type(get_type(prop), "v") }})) {
+if ({{ name or prop._name }} !== null && !{{ name or prop._name }}.every((v) => {{ check_type(get_type(prop), "v") }})) {
     throw "{{prop._name}} array values must be {{ get_type(prop)-}}";
 }
 {% endif %}
@@ -162,23 +166,13 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% if model.enum %}
         return new {{ model.name }}(d);
 {% else %}
-{% if model.extends %}
-        const v = { {% for prop in model.properties %}{{prop._name}}:{{translate_bool(prop._default)}},{% endfor %} ...d};
-{% else %}
-        const v = { {% for prop in model.properties %}{{prop._name}}:{{translate_bool(prop._default)}},{% endfor %}};
-{% endif %}
-{% for prop in model.properties %}
-        if ("{{ prop._original_name }}" in d) {
-{% if prop._type.type.__name__ == 'list' %}
-            v["{{ prop._name }}"] = d["{{ prop._original_name }}"].reduce((acc, v) => {acc.push("fromMap" in {{ get_type(prop) }} ? {{ get_type(prop) }}.fromMap(v) : v); return acc;}, []);
-{% else %}
-            v["{{ prop._name }}"] = {{ get_type(prop) }}.__proto__.hasOwnProperty("fromMap") ? {{ get_type(prop) }}.fromMap(d["{{prop._original_name}}"]) : d["{{ prop._original_name }}"];
-{% endif %}
-        }
-{% endfor %}
         const ret = new {{ model.parent or model.name }}();
-        for (const [key, value] of Object.entries(v)) {
-            ret[key] = value;
+        for (const [key, value] of Object.entries(d)) {
+            if (value instanceof Array) {
+                ret[key] = value.reduce((acc, v) => {acc.push(v.constructor.hasOwnProperty("fromMap") ? v.constructor.fromMap(v) : v); return acc;}, []);
+            } else {
+                ret[key] = value.constructor.hasOwnProperty("fromMap") ? value.constructor.fromMap(value) : value;
+            }
         }
         return ret;
 {% endif %}
