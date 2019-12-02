@@ -60,7 +60,7 @@ if ({{ name or prop._name }} !== null && !{{ name or prop._name }}.every((v) => 
 {%- macro generate_class(model) -%}
 {% if model.comment %}
 /**
- * {{ model.comment | indent(4) }}
+ * {{ model.comment | indent(7) }}
  */
 {% endif %}
 class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %} {
@@ -74,6 +74,8 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% for name, value in model.enum.items() %}
     /**
      * {{ name }}
+     * @returns {% raw %}{{% endraw %}{{model.name}}{% raw %}}{% endraw %}
+
      */
     static get {{name}}() {
         return new {{ model.name }}({% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %});
@@ -103,15 +105,12 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% endfor %}
 
 {% if not model.enum %}
-{% if model.propertiesHaveComment %}
     /**
 {% for prop in model.properties %}
-{% if prop._comment %}
-     * @param {{ prop._name }} {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %} {{ prop._comment | indent(4) }}
-{% endif %}
+     * @param {{ prop._name }} {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %} {% if prop._comment %}{{ prop._comment | indent(7) }}{% endif %}
+
 {% endfor %}
      */
-{% endif %}
     constructor(
 {% for prop in model.properties %}
             {{prop._name}}={{translate_bool(prop._default)}},
@@ -143,18 +142,29 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% endif %}
 
 {% for prop in model.properties %}
-{% if prop._comment %}
     /**
-     * {{ prop._comment | indent(4) }}
+{% if prop._comment %}     * {{ prop._comment | indent(7) }}{% endif %}
+
+     * @returns {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
+
      */
-{% endif %}
     get {{prop._name}}() {
         return this.#__{{prop._name}};
     }
+    /**
+     * @param value {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
+
+     */
     set {{prop._name}}(value) {
         {{ type_check(prop, "value")|indent(8) }}
         this.#__{{prop._name}} = value;
     }
+    /**
+     * @param value {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
+
+     * @returns {% raw %}{{% endraw %}{{ model.name }}{% raw %}}{% endraw %}
+
+     */
     with{{sentence_case(prop._name)}}(value) {
         this.{{prop._name}} = value;
         return this;
@@ -212,3 +222,9 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {{-generate_class(model)}}
 
 {% endfor %}
+
+module.exports = {
+{%- for model in models %}
+    {{model.name}},
+{% endfor %}
+};
