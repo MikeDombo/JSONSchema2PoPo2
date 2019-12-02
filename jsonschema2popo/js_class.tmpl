@@ -195,6 +195,10 @@ Object.defineProperty({{ model.parent or model.name }}, "{{ name }}", {
 });
 {% endfor %}
 {% endif %}
+{% for subModel in model.subModels %}
+
+{{ model.name }}.{{ subModel.name }} = {{generate_class(subModel)|indent(4)}}
+{% endfor %}
 {% if model.properties %}
 
 Object.defineProperty({{ model.parent or model.name }}, "typesMap", {
@@ -224,9 +228,6 @@ Object.defineProperty({{ model.parent or model.name }}, "validationsMap", {
 });
 {% endif %}
 
-{% for subModel in model.subModels %}
-{{ model.name }}.{{ subModel.name }} = {{generate_class(subModel)|indent(4)}}
-{% endfor %}
 {% endmacro %}
 
 
