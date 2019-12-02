@@ -2,7 +2,7 @@
     {{ text[0]|upper}}{{text[1:] }}
 {%- endmacro -%}
 {% macro jsdoc_param(name, prop) %}
-@param {{ name }} {% raw %}{{% endraw %}{% if not get_type(prop).startswith(get_type(prop, parent=False)) %}{{ get_type(prop)[:get_type(prop).find(get_type(prop, parent=False))-1] }}~{{ get_type(prop) }}{% else %}{{ get_type(prop) }}{% endif %}{% if get_type(prop, parent=False, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
+@param {{ name }} {% raw %}{{% endraw %}{% if not get_type(prop).startswith(get_type(prop, parent=False)) %}{{ get_type(prop)[:get_type(prop).find(get_type(prop, parent=False))-1] }}~{{ get_type(prop) }}{% else %}{{ get_type(prop) }}{% endif %}{% if get_type(prop, parent=False, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %} {% if prop._comment %}{{ prop._comment | indent(7) }}{% endif %}
 {% endmacro %}
 {%- macro translate_type(type) -%}
 {%- if type is none -%}
@@ -81,8 +81,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% if not model.enum %}
     /**
 {% for prop in model.properties %}
-     * {{ jsdoc_param(prop._name, prop) }} {% if prop._comment %}{{ prop._comment | indent(7) }}{% endif %}
-
+     * {{ jsdoc_param(prop._name, prop) }}
 {% endfor %}
      */
     constructor(
