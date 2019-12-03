@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.18
+
+-   Some changes to make eslint happier with the output
+
 ## 2.0.17
 
 -   Support for JavaScript generation by using `-l js`

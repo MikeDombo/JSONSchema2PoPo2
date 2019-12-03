@@ -50,12 +50,12 @@ null
 {% macro type_check(prop, name=None) %}
 {% if prop._type and prop._type.type %}
 if ({{ name or prop._name }} !== null && !({{ check_type(get_type(prop, parent=prop._type.type.__name__ != "list", sub=False), name or prop._name) }})) {
-    throw "{{prop._name}} must be {{get_type(prop, parent=prop._type.type.__name__ != "list", sub=False)-}}";
+    throw new Error("{{prop._name}} must be {{get_type(prop, parent=prop._type.type.__name__ != "list", sub=False)-}}");
 }
 {% endif %}
 {% if prop._type and prop._type.type.__name__ == 'list' and prop._type.subtype %}
 if ({{ name or prop._name }} !== null && !{{ name or prop._name }}.every((v) => {{ check_type(get_type(prop), "v") }})) {
-    throw "{{prop._name}} array values must be {{ get_type(prop)-}}";
+    throw new Error("{{prop._name}} array values must be {{ get_type(prop)-}}");
 }
 {% endif %}
 {% endmacro %}
@@ -101,7 +101,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
     #value = null;
     constructor(value=null) {
         if (!(value in Object.values({{ model.parent or model.name }}.options))) {
-            throw "Value must be one of the enumerated options";
+            throw new Error("Value must be one of the enumerated options");
         }
         this.#value = value;
     }
@@ -144,9 +144,9 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% for prop in model.properties %}
         if ("{{ prop._original_name }}" in d) {
 {% if prop._type.type.__name__ == 'list' %}
-            ret.{{ prop._name }} = d["{{ prop._original_name }}"].reduce((acc, v) => {acc.push({{ get_type(prop) }}.hasOwnProperty("fromMap") ? {{ get_type(prop) }}.fromMap(v) : v); return acc;}, []);
+            ret.{{ prop._name }} = d["{{ prop._original_name }}"].reduce((acc, v) => {acc.push(Object.prototype.hasOwnProperty.call({{ get_type(prop) }}, "fromMap") ? {{ get_type(prop) }}.fromMap(v) : v); return acc;}, []);
 {% else %}
-            ret.{{ prop._name }} = {{ get_type(prop) }}.hasOwnProperty("fromMap") ? {{ get_type(prop) }}.fromMap(d["{{prop._original_name}}"]) : d["{{ prop._original_name }}"];
+            ret.{{ prop._name }} = Object.prototype.hasOwnProperty.call({{ get_type(prop) }}, "fromMap") ? {{ get_type(prop) }}.fromMap(d["{{prop._original_name}}"]) : d["{{ prop._original_name }}"];
 {% endif %}
         }
 {% endfor %}
@@ -167,9 +167,9 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% for prop in model.properties %}
         if (this.{{prop._name}} !== null) {
 {% if prop._type.type.__name__ == "list" %}
-            d["{{prop._original_name}}"] = this.{{prop._name}}.reduce((acc, v) => {acc.push(v.__proto__.hasOwnProperty("asMap") ? v.asMap() : v); return acc;}, []);
+            d["{{prop._original_name}}"] = this.{{prop._name}}.reduce((acc, v) => {acc.push(Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(v), "asMap") ? v.asMap() : v); return acc;}, []);
 {% else %}
-            d["{{prop._original_name}}"] = this.{{prop._name}}.__proto__.hasOwnProperty("asMap") ? this.{{prop._name}}.asMap() : this.{{prop._name}};
+            d["{{prop._original_name}}"] = Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(this.{{prop._name}}), "asMap") ? this.{{prop._name}}.asMap() : this.{{prop._name}};
 {% endif %}
         }
 {% endfor %}
