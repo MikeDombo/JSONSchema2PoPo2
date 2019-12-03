@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.17
+
+-   Support for JavaScript generation by using `-l js`
+
 ## 2.0.16
 
 -   Add comments to properties

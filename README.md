@@ -24,6 +24,7 @@ jsonschema2popo2 -o /path/to/output_file.py /path/to/json_schema.json
 - --no-generate-from-definitions - Don't generate any classes from the "definitions" section of the schema.
 - --no-generate-from-root-object - Don't generate any classes from the root of the schema.
 - -tp, --translate-properties - Translate property names to be snake_case. With this enabled, inner classes will no longer be prefixed by "_" since their names won't collide with the property name.
+- -l, --language - Language to generate in. Either "js" or "python".
 
 ### Encode Generated Object to JSON:
 ```python
