@@ -67,13 +67,6 @@ if ({{ name or prop._name }} !== null && !{{ name or prop._name }}.every((v) => 
  */
 {% endif %}
 class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %} {
-{% if model.enum %}
-    #options = {
-{% for name, value in model.enum.items() %}
-        {{ name }}: {% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %},
-{% endfor %}
-    };
-{% endif %}
 {% for prop in model.properties %}
     #__{{prop._name}} = null;
 {% endfor %}
@@ -107,7 +100,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% else %}
     #value = null;
     constructor(value=null) {
-        if (!(value in Object.values(this.#options))) {
+        if (!(value in Object.values({{ model.parent or model.name }}.options))) {
             throw "Value must be one of the enumerated options";
         }
         this.#value = value;
@@ -145,7 +138,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 
     static fromMap(d) {
 {% if model.enum %}
-        return new {{ model.name }}(d);
+        return {{ model.name }}[{{ model.name }}.optionsFlipped[d]];
 {% else %}
         const ret = new {{ model.parent or model.name }}();
 {% for prop in model.properties %}
@@ -185,6 +178,20 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
     }
 };
 {% if model.enum %}
+Object.defineProperty({{ model.parent or model.name }}, "options", {
+    value: {
+{% for name, value in model.enum.items() %}
+    {{ name }}: {% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %},
+{% endfor %}
+    }
+});
+Object.defineProperty({{ model.parent or model.name }}, "optionsFlipped", {
+    value: {
+{% for name, value in model.enum.items() %}
+    {% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %}: "{{ name }}",
+{% endfor %}
+    }
+});
 
 {% for name, value in model.enum.items() %}
 /**
