@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.19
+
+-   Fix generation in JS of pattern validation to make it a regex instead of plain string
+
 ## 2.0.18
 
 -   Some changes to make eslint happier with the output

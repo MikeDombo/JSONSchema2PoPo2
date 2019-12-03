@@ -231,7 +231,7 @@ Object.defineProperty({{ model.parent or model.name }}, "formatsMap", {
 Object.defineProperty({{ model.parent or model.name }}, "validationsMap", {
     value: {
 {% for prop in model.properties if prop._validations %}
-        '{{ prop._name }}': { {% for type, value in prop._validations.items() %}'{{ type }}': {% if type == "pattern" %}'{{ value }}'{% else %}{{ translate_bool(value) }}{% endif %},{% endfor %}},
+        '{{ prop._name }}': { {% for type, value in prop._validations.items() %}'{{ type }}': {% if type == "pattern" %}/{{ value }}/{% else %}{{ translate_bool(value) }}{% endif %},{% endfor %}},
 {% endfor %}
     }
 });
