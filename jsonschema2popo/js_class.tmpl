@@ -1,10 +1,11 @@
 {% macro sentence_case(text) -%}
     {{ text[0]|upper}}{{text[1:] }}
 {%- endmacro -%}
+{% macro jsdoc_type(prop) %}{% raw %}{{% endraw %}{% if not get_type(prop).startswith(get_type(prop, parent=False)) %}{% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ get_type(prop)[:get_type(prop).find(get_type(prop, parent=False))-1] }}~{{ get_type(prop) }}{% else %}{{ get_type(prop, module=True) }}{% endif %}{% if get_type(prop, parent=False, sub=False, module=True) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}{% endmacro %}
 {% macro jsdoc_param(name, prop) %}
-@param {{ name }} {% raw %}{{% endraw %}{% if not get_type(prop).startswith(get_type(prop, parent=False)) %}{{ get_type(prop)[:get_type(prop).find(get_type(prop, parent=False))-1] }}~{{ get_type(prop) }}{% else %}{{ get_type(prop) }}{% endif %}{% if get_type(prop, parent=False, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %} {% if prop._comment %}{{ prop._comment | indent(7) }}{% endif %}
+@param {{ name }} {{ jsdoc_type(prop) }} {% if prop._comment %}{{ prop._comment | indent(7) }}{% endif %}
 {% endmacro %}
-{%- macro translate_type(type) -%}
+{%- macro translate_type(type, module=False) -%}
 {%- if type is none -%}
 null
 {%- elif type == "str" -%}
@@ -18,7 +19,7 @@ Boolean
 {%- elif type == "int" or type == "float" -%}
 Number
 {%- else -%}
-{{ type }}
+{% if module and namespace_path %}{{ namespace_path + "." }}{% endif %}{{ type }}
 {%- endif -%}
 {%- endmacro -%}
 
@@ -46,7 +47,7 @@ null
 {% endif %}
 {% endmacro %}
 
-{% macro get_type(prop, parent=True, sub=True) -%}{{ translate_type(parent and prop._type.parent or sub and prop._type.subtype.__name__ or sub and prop._type.subtype or prop._type.type.__name__ or prop._type.type or None)-}}{%- endmacro -%}
+{% macro get_type(prop, parent=True, sub=True, module=False) -%}{{ translate_type(parent and prop._type.parent or sub and prop._type.subtype.__name__ or sub and prop._type.subtype or prop._type.type.__name__ or prop._type.type or None, module=module)-}}{%- endmacro -%}
 {% macro type_check(prop, name=None) %}
 {% if prop._type and prop._type.type %}
 if ({{ name or prop._name }} !== null && !({{ check_type(get_type(prop, parent=prop._type.type.__name__ != "list", sub=False), name or prop._name) }})) {
@@ -61,11 +62,13 @@ if ({{ name or prop._name }} !== null && !{{ name or prop._name }}.every((v) => 
 {% endmacro %}
 
 {%- macro generate_class(model) -%}
-{% if model.comment %}
 /**
- * {{ model.comment | indent(3) }}
+ * {% if model.comment %}{{ model.comment | indent(3) }}{% endif %}
+ *
+ * @class
+{% if namespace_path %} * @memberOf {{ namespace_path }}{% endif %}
+
  */
-{% endif %}
 class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %} {
 {% for prop in model.properties %}
     #__{{prop._name}} = null;
@@ -111,7 +114,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
     /**
 {% if prop._comment %}     * {{ prop._comment | indent(7) }}
 {% endif %}
-     * @returns {% raw %}{{% endraw %}{{ get_type(prop) }}{% if get_type(prop, parent=False, sub=False) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
+     * @returns {{ jsdoc_type(prop) }}
 
      */
     get {{prop._name}}() {
@@ -126,7 +129,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
     }
     /**
      * {{ jsdoc_param("value", prop) }}
-     * @returns {% raw %}{{% endraw %}{{ model.name }}{% raw %}}{% endraw %}
+     * @returns {% raw %}{{% endraw %}{% if namespace_path %}{{ namespace_path + "." }}{% endif %}{% if model.parent %}{{ ".".join(model.parent.split(".")[:-1])+"~"+model.parent}}{% else %}{{ model.name }}{% endif %}{% raw %}}{% endraw %}
 
      */
     with{{sentence_case(prop._name)}}(value) {
@@ -195,8 +198,8 @@ Object.defineProperty({{ model.parent or model.name }}, "optionsFlipped", {
 
 {% for name, value in model.enum.items() %}
 /**
- * @member {% raw %}{{% endraw %}{{ model.name }}{% raw %}}{% endraw %} {{ name }}
- * @memberOf {{ model.name }}#
+ * @member {% raw %}{{% endraw %}{% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ model.name }}{% raw %}}{% endraw %} {{ name }}
+ * @memberOf {% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ model.name }}#
  * @readonly
  */
 Object.defineProperty({{ model.parent or model.name }}, "{{ name }}", {
@@ -245,6 +248,16 @@ Object.defineProperty({{ model.parent or model.name }}, "validationsMap", {
 
 {% endfor %}
 
+/**
+ * @type {% raw %}{{{% endraw %}
+
+{% for model in models %}
+{{model.name}}: {{model.name}}{% if not loop.last %},
+{% endif %}{% endfor %}
+
+{% raw %}}}{% endraw %}
+
+ */
 module.exports = {
 {%- for model in models %}
     {{model.name}},

@@ -46,7 +46,8 @@ class JsonSchema2Popo:
         generate_definitions=True,
         generate_root=True,
         translate_properties=False,
-        language="python"
+        language="python",
+        namespace_path="",
     ):
         self.list_used = False
         self.enum_used = False
@@ -63,6 +64,7 @@ class JsonSchema2Popo:
         self.generate_definitions = generate_definitions
         self.translate_properties = translate_properties
         self.language = language
+        self.namespace_path = namespace_path
 
         self.definitions = []
 
@@ -347,6 +349,7 @@ class JsonSchema2Popo:
             enum_used=self.enum_used,
             list_used=self.list_used,
             use_slots=self.use_slots,
+            namespace_path=self.namespace_path,
         ).dump(filename)
         if hasattr(filename, "close"):
             filename.close()
@@ -412,7 +415,11 @@ def init_parser():
         "--language",
         choices=JsonSchema2Popo.TEMPLATES.keys(),
         help="Which language to generate in",
-        default="python"
+        default="python",
+    )
+    parser.add_argument(
+        "--namespace-path",
+        help="Namespace path to be prepended to the @memberOf for JSDoc (only used for JS)",
     )
     return parser
 
@@ -461,6 +468,7 @@ def main():
         generate_root=args.no_generate_from_root_object,
         translate_properties=args.translate_properties,
         language=args.language,
+        namespace_path=args.namespace_path,
     )
     loader.load(args.json_schema_file)
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.20
+
+-  Add `--namespace-path` for Javascript to prepend to members of a namespace
+
 ## 2.0.19
 
 -   Fix generation in JS of pattern validation to make it a regex instead of plain string
