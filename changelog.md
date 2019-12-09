@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.21
+
+-  Fix class level comment spacing (JS)
+
 ## 2.0.20
 
 -  Add `--namespace-path` for Javascript to prepend to members of a namespace

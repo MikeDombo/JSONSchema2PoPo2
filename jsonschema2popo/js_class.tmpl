@@ -64,6 +64,7 @@ if ({{ name or prop._name }} !== null && !{{ name or prop._name }}.every((v) => 
 {%- macro generate_class(model) -%}
 /**
  * {% if model.comment %}{{ model.comment | indent(3) }}{% endif %}
+
  *
  * @class
 {% if namespace_path %} * @memberOf {{ namespace_path }}{% endif %}
