@@ -104,7 +104,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% else %}
     #value = null;
     constructor(value=null) {
-        if (!(value in Object.values({{ model.parent or model.name }}.options))) {
+        if (!Object.values({{ model.parent or model.name }}.options).includes(value)) {
             throw new Error("Value must be one of the enumerated options");
         }
         this.#value = value;

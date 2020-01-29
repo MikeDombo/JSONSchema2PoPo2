@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.22
+
+-  Fix JS generation for enums to use `includes` instead of `in`
+
 ## 2.0.21
 
 -  Fix class level comment spacing (JS)
