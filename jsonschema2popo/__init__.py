@@ -1,3 +1,3 @@
 #!/usr/bin/env python
 
-__version__ = "2.0.22"
+__version__ = "2.0.23"

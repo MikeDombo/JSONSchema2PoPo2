@@ -1,3 +1,6 @@
+from reprlib import repr as limitedRepr
+
+
 class Abcd:
     class _Object:
         def __init__(self):
@@ -24,11 +27,11 @@ class Abcd:
     }
     _formats_map = {}
     _validations_map = {
-        "Int": {"required": False},
-        "Float": {"required": False},
-        "ListInt": {"required": False},
-        "String": {"required": False},
-        "Object": {"required": False},
+        "Int": {"required": False,},
+        "Float": {"required": False,},
+        "ListInt": {"required": False,},
+        "String": {"required": False,},
+        "Object": {"required": False,},
     }
 
     def __init__(self, Int=None, Float=None, ListInt=None, String=None, Object=None):
@@ -158,5 +161,25 @@ class Abcd:
 
     def __repr__(self):
         return "<Class Abcd. Int: {}, Float: {}, ListInt: {}, String: {}, Object: {}>".format(
-            self.__Int, self.__Float, self.__ListInt, self.__String, self.__Object
+            limitedRepr(
+                self.__Int[:20] if isinstance(self.__Int, bytes) else self.__Int
+            ),
+            limitedRepr(
+                self.__Float[:20] if isinstance(self.__Float, bytes) else self.__Float
+            ),
+            limitedRepr(
+                self.__ListInt[:20]
+                if isinstance(self.__ListInt, bytes)
+                else self.__ListInt
+            ),
+            limitedRepr(
+                self.__String[:20]
+                if isinstance(self.__String, bytes)
+                else self.__String
+            ),
+            limitedRepr(
+                self.__Object[:20]
+                if isinstance(self.__Object, bytes)
+                else self.__Object
+            ),
         )

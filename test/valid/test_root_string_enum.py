@@ -1,3 +1,6 @@
+from reprlib import repr as limitedRepr
+
+
 import enum
 
 
@@ -15,4 +18,6 @@ class Abcd(enum.Enum):
         return self.value
 
     def __repr__(self):
-        return "<Enum Abcd. {}: {}>".format(self.name, self.value)
+        return "<Enum Abcd. {}: {}>".format(
+            limitedRepr(self.name), limitedRepr(self.value)
+        )

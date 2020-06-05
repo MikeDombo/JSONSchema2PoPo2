@@ -42,7 +42,7 @@ setup(
     keywords="python json-schema code-generator",
     license="MIT License",
     python_requires=">=3.4",
-    install_requires=["Jinja2>=2.10.1", "networkx==1.9"],
+    install_requires=["Jinja2>=2.10.1", "networkx==2.4"],
     extras_require={"Format JS": ["jsbeautify"], "Format Python": ["black"]},
     packages=["jsonschema2popo"],
     package_data={"jsonschema2popo": ["_class.tmpl"]},

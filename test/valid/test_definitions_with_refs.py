@@ -1,3 +1,6 @@
+from reprlib import repr as limitedRepr
+
+
 class ABcd:
 
     _types_map = {
@@ -5,7 +8,10 @@ class ABcd:
         "Child2": {"type": str, "subtype": None},
     }
     _formats_map = {}
-    _validations_map = {"Child1": {"required": False}, "Child2": {"required": False}}
+    _validations_map = {
+        "Child1": {"required": False,},
+        "Child2": {"required": False,},
+    }
 
     def __init__(self, Child1=None, Child2=None):
         pass
@@ -65,15 +71,28 @@ class ABcd:
 
     def __repr__(self):
         return "<Class ABcd. Child1: {}, Child2: {}>".format(
-            self.__Child1, self.__Child2
+            limitedRepr(
+                self.__Child1[:20]
+                if isinstance(self.__Child1, bytes)
+                else self.__Child1
+            ),
+            limitedRepr(
+                self.__Child2[:20]
+                if isinstance(self.__Child2, bytes)
+                else self.__Child2
+            ),
         )
 
 
 class SubRef:
 
-    _types_map = {"ChildA": {"type": ABcd, "subtype": None}}
+    _types_map = {
+        "ChildA": {"type": ABcd, "subtype": None},
+    }
     _formats_map = {}
-    _validations_map = {"ChildA": {"required": False}}
+    _validations_map = {
+        "ChildA": {"required": False,},
+    }
 
     def __init__(self, ChildA=None):
         pass
@@ -112,7 +131,13 @@ class SubRef:
         return d
 
     def __repr__(self):
-        return "<Class SubRef. ChildA: {}>".format(self.__ChildA)
+        return "<Class SubRef. ChildA: {}>".format(
+            limitedRepr(
+                self.__ChildA[:20]
+                if isinstance(self.__ChildA, bytes)
+                else self.__ChildA
+            )
+        )
 
 
 class DirectRef:
@@ -122,7 +147,10 @@ class DirectRef:
         "Child2": {"type": str, "subtype": None},
     }
     _formats_map = {}
-    _validations_map = {"Child1": {"required": False}, "Child2": {"required": False}}
+    _validations_map = {
+        "Child1": {"required": False,},
+        "Child2": {"required": False,},
+    }
 
     def __init__(self, Child1=None, Child2=None):
         pass
@@ -182,7 +210,16 @@ class DirectRef:
 
     def __repr__(self):
         return "<Class DirectRef. Child1: {}, Child2: {}>".format(
-            self.__Child1, self.__Child2
+            limitedRepr(
+                self.__Child1[:20]
+                if isinstance(self.__Child1, bytes)
+                else self.__Child1
+            ),
+            limitedRepr(
+                self.__Child2[:20]
+                if isinstance(self.__Child2, bytes)
+                else self.__Child2
+            ),
         )
 
 

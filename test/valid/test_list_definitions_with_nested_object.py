@@ -1,3 +1,6 @@
+from reprlib import repr as limitedRepr
+
+
 class A:
     class _sub1:
 
@@ -6,7 +9,10 @@ class A:
             "prop2": {"type": float, "subtype": None},
         }
         _formats_map = {}
-        _validations_map = {"prop1": {"required": False}, "prop2": {"required": False}}
+        _validations_map = {
+            "prop1": {"required": False,},
+            "prop2": {"required": False,},
+        }
 
         def __init__(self, prop1=None, prop2=None):
             pass
@@ -70,12 +76,25 @@ class A:
 
         def __repr__(self):
             return "<Class _sub1. prop1: {}, prop2: {}>".format(
-                self.__prop1, self.__prop2
+                limitedRepr(
+                    self.__prop1[:20]
+                    if isinstance(self.__prop1, bytes)
+                    else self.__prop1
+                ),
+                limitedRepr(
+                    self.__prop2[:20]
+                    if isinstance(self.__prop2, bytes)
+                    else self.__prop2
+                ),
             )
 
-    _types_map = {"sub1": {"type": list, "subtype": _sub1}}
+    _types_map = {
+        "sub1": {"type": list, "subtype": _sub1},
+    }
     _formats_map = {}
-    _validations_map = {"sub1": {"required": False}}
+    _validations_map = {
+        "sub1": {"required": False,},
+    }
 
     def __init__(self, sub1=None):
         pass
@@ -113,7 +132,11 @@ class A:
         return d
 
     def __repr__(self):
-        return "<Class A. sub1: {}>".format(self.__sub1)
+        return "<Class A. sub1: {}>".format(
+            limitedRepr(
+                self.__sub1[:20] if isinstance(self.__sub1, bytes) else self.__sub1
+            )
+        )
 
 
 class RootObject:

@@ -1,8 +1,15 @@
+from reprlib import repr as limitedRepr
+
+
 class B:
 
-    _types_map = {"prop1": {"type": int, "subtype": None}}
+    _types_map = {
+        "prop1": {"type": int, "subtype": None},
+    }
     _formats_map = {}
-    _validations_map = {"prop1": {"required": False}}
+    _validations_map = {
+        "prop1": {"required": False,},
+    }
 
     def __init__(self, prop1=None):
         pass
@@ -39,14 +46,22 @@ class B:
         return d
 
     def __repr__(self):
-        return "<Class B. prop1: {}>".format(self.__prop1)
+        return "<Class B. prop1: {}>".format(
+            limitedRepr(
+                self.__prop1[:20] if isinstance(self.__prop1, bytes) else self.__prop1
+            )
+        )
 
 
 class A:
 
-    _types_map = {"prop1": {"type": list, "subtype": B}}
+    _types_map = {
+        "prop1": {"type": list, "subtype": B},
+    }
     _formats_map = {}
-    _validations_map = {"prop1": {"required": False}}
+    _validations_map = {
+        "prop1": {"required": False,},
+    }
 
     def __init__(self, prop1=None):
         pass
@@ -83,7 +98,11 @@ class A:
         return d
 
     def __repr__(self):
-        return "<Class A. prop1: {}>".format(self.__prop1)
+        return "<Class A. prop1: {}>".format(
+            limitedRepr(
+                self.__prop1[:20] if isinstance(self.__prop1, bytes) else self.__prop1
+            )
+        )
 
 
 class RootObject:

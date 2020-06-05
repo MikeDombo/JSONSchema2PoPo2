@@ -1,3 +1,6 @@
+from reprlib import repr as limitedRepr
+
+
 class ABcd:
     class _Child1:
         class _Child2:
@@ -8,8 +11,8 @@ class ABcd:
             }
             _formats_map = {}
             _validations_map = {
-                "IntVal": {"required": False},
-                "ListVal": {"required": False},
+                "IntVal": {"required": False,},
+                "ListVal": {"required": False,},
             }
 
             def __init__(self, IntVal=None, ListVal=None):
@@ -74,7 +77,16 @@ class ABcd:
 
             def __repr__(self):
                 return "<Class _Child2. IntVal: {}, ListVal: {}>".format(
-                    self.__IntVal, self.__ListVal
+                    limitedRepr(
+                        self.__IntVal[:20]
+                        if isinstance(self.__IntVal, bytes)
+                        else self.__IntVal
+                    ),
+                    limitedRepr(
+                        self.__ListVal[:20]
+                        if isinstance(self.__ListVal, bytes)
+                        else self.__ListVal
+                    ),
                 )
 
         _types_map = {
@@ -83,8 +95,8 @@ class ABcd:
         }
         _formats_map = {}
         _validations_map = {
-            "IntVal": {"required": False},
-            "Child2": {"required": False},
+            "IntVal": {"required": False,},
+            "Child2": {"required": False,},
         }
 
         def __init__(self, IntVal=None, Child2=None):
@@ -149,12 +161,25 @@ class ABcd:
 
         def __repr__(self):
             return "<Class _Child1. IntVal: {}, Child2: {}>".format(
-                self.__IntVal, self.__Child2
+                limitedRepr(
+                    self.__IntVal[:20]
+                    if isinstance(self.__IntVal, bytes)
+                    else self.__IntVal
+                ),
+                limitedRepr(
+                    self.__Child2[:20]
+                    if isinstance(self.__Child2, bytes)
+                    else self.__Child2
+                ),
             )
 
-    _types_map = {"Child1": {"type": _Child1, "subtype": None}}
+    _types_map = {
+        "Child1": {"type": _Child1, "subtype": None},
+    }
     _formats_map = {}
-    _validations_map = {"Child1": {"required": False}}
+    _validations_map = {
+        "Child1": {"required": False,},
+    }
 
     def __init__(self, Child1=None):
         pass
@@ -193,7 +218,13 @@ class ABcd:
         return d
 
     def __repr__(self):
-        return "<Class ABcd. Child1: {}>".format(self.__Child1)
+        return "<Class ABcd. Child1: {}>".format(
+            limitedRepr(
+                self.__Child1[:20]
+                if isinstance(self.__Child1, bytes)
+                else self.__Child1
+            )
+        )
 
 
 class Ref:
@@ -203,7 +234,10 @@ class Ref:
         "ListVal": {"type": list, "subtype": str},
     }
     _formats_map = {}
-    _validations_map = {"IntVal": {"required": False}, "ListVal": {"required": False}}
+    _validations_map = {
+        "IntVal": {"required": False,},
+        "ListVal": {"required": False,},
+    }
 
     def __init__(self, IntVal=None, ListVal=None):
         pass
@@ -264,7 +298,16 @@ class Ref:
 
     def __repr__(self):
         return "<Class Ref. IntVal: {}, ListVal: {}>".format(
-            self.__IntVal, self.__ListVal
+            limitedRepr(
+                self.__IntVal[:20]
+                if isinstance(self.__IntVal, bytes)
+                else self.__IntVal
+            ),
+            limitedRepr(
+                self.__ListVal[:20]
+                if isinstance(self.__ListVal, bytes)
+                else self.__ListVal
+            ),
         )
 
 
@@ -275,7 +318,10 @@ class AAAA:
         "YRef": {"type": ABcd._Child1._Child2, "subtype": None},
     }
     _formats_map = {}
-    _validations_map = {"X": {"required": False}, "YRef": {"required": False}}
+    _validations_map = {
+        "X": {"required": False,},
+        "YRef": {"required": False,},
+    }
 
     def __init__(self, X=None, YRef=None):
         pass
@@ -330,7 +376,12 @@ class AAAA:
         return d
 
     def __repr__(self):
-        return "<Class AAAA. X: {}, YRef: {}>".format(self.__X, self.__YRef)
+        return "<Class AAAA. X: {}, YRef: {}>".format(
+            limitedRepr(self.__X[:20] if isinstance(self.__X, bytes) else self.__X),
+            limitedRepr(
+                self.__YRef[:20] if isinstance(self.__YRef, bytes) else self.__YRef
+            ),
+        )
 
 
 class RootObject:

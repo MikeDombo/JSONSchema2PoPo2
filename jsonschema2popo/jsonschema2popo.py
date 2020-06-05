@@ -99,9 +99,10 @@ class JsonSchema2Popo:
 
             self.definitions = []
             if self.generate_definitions:
-                for model_name in networkx.topological_sort(g, reverse=True):
+                for model_name in networkx.topological_sort(g):
                     if model_name in models_map:
-                        self.definitions.append(models_map[model_name])
+                        # insert to front so that the sorting is reversed
+                        self.definitions.insert(0, models_map[model_name])
 
         # create root object if there are some properties in the root
         if "title" in json_schema:
@@ -430,8 +431,8 @@ def format_python_file(filename):
 
         black.format_file_in_place(
             pathlib.Path(filename).absolute(),
-            88,  # black default line length is 88
             fast=True,
+            mode=black.FileMode(line_length=88, target_versions={black.TargetVersion.PY33}),
             write_back=black.WriteBack.YES,
         )
     except:

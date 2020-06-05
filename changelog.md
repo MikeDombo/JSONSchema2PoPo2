@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.23
+
+-  Limit the \_\_repr__ length in Python to prevent OOM
+-  Bump networkx version to latest stable (2.4) for Python 3.8 compatibility
+
 ## 2.0.22
 
 -  Fix JS generation for enums to use `includes` instead of `in`
