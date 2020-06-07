@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0
+
+-  Python generation properly typechecks required properties, now if a prop isn't required, you can set it to `None`.
+-  Updates to testing to not just do a file output comparison
+-  Generation of nested objects without properties now generates nothing. The property is instead treated as a `dict`.
+-  The `$ref` in `extends` can now take a path to a json file with a definition for schema inheritance.
+-  Fix JavaScript generation for nested objects which caused a redeclaration error.
+
 ## 2.0.23
 
 -  Limit the \_\_repr__ length in Python to prevent OOM
