@@ -5,6 +5,8 @@ A converter to extract 'Plain Old Python Object' classes from JSON Schema files.
 Similar to the Java project [JSONSchema2PoJo](https://github.com/joelittlejohn/jsonschema2pojo/).
 Currently compatible with Python 3.4+ (when using enums, otherwise any version should be fine).
 
+[![PyPI version](https://badge.fury.io/py/JSONSchema2PoPo2.svg)](https://pypi.org/project/JSONSchema2PoPo2/) ![Python package](https://github.com/MikeDombo/JSONSchema2PoPo2/workflows/Python%20package/badge.svg?branch=master)
+
 ## Installation
 ```
 pip install jsonschema2popo2
