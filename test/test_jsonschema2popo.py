@@ -1,8 +1,12 @@
+import importlib.util
 import json
 import os
+import sys
 import unittest
-import importlib.util
 from types import ModuleType
+
+import mypy.main
+from mypy.fscache import FileSystemCache
 
 from jsonschema2popo import jsonschema2popo
 from jsonschema2popo.jsonschema2popo import format_python_file, format_js_file
@@ -46,6 +50,7 @@ def import_file(file_path: str) -> ModuleType:
 class JsonSchema2Popo(unittest.TestCase):
     def tearDown(self):
         try:
+            self.mypy_test()
             self.js_test()
         finally:
             os.remove(self.test_file)
@@ -64,6 +69,30 @@ class JsonSchema2Popo(unittest.TestCase):
         self.assertEqual(
             0, os.system(f"node test_js.js {self.id()} {self.test_file_js}")
         )
+
+    def mypy_test(self):
+        """
+        Make sure that the generated python typechecks successfully
+        """
+        messages = []
+
+        def flush_errors(new_messages, serious):
+            messages.extend(new_messages)
+
+        options = mypy.main.Options()
+        options.allow_untyped_globals = True
+        mypy.main.build.build(
+            [mypy.main.BuildSource(path=self.test_file, module="")],
+            options,
+            None,
+            flush_errors,
+            FileSystemCache(),
+            sys.stdout,
+            sys.stderr,
+        )
+        for m in messages:
+            print(m)
+        self.assertFalse(messages)
 
     def import_test_file(self):
         return import_file(self.test_file)
