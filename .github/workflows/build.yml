@@ -1,0 +1,44 @@
+name: Python package
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches: '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8] # just test latest claimed compatibility
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Use Node.js 12.x
+      uses: actions/setup-node@v1
+      with:
+        node-version: 12.x
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip wheel
+        pip install black jsbeautifier
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Check format
+      run: |
+        black --check .
+    - name: Test with unittest
+      run: |
+        python -m unittest
+    - name: Build and publish
+      if: github.event_name == 'push'
+      env:
+        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      run: |
+        python setup.py sdist bdist_wheel
+        twine upload dist/*

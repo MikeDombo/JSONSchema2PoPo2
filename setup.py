@@ -34,6 +34,7 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
     url="https://github.com/mikedombo/JSONSchema2PoPo2",
@@ -43,9 +44,9 @@ setup(
     license="MIT License",
     python_requires=">=3.4",
     install_requires=["Jinja2>=2.10.1", "networkx==2.4"],
-    extras_require={"Format JS": ["jsbeautify"], "Format Python": ["black"]},
+    extras_require={"Format JS": ["jsbeautifier"], "Format Python": ["black"]},
     packages=["jsonschema2popo"],
-    package_data={"jsonschema2popo": ["_class.tmpl"]},
+    package_data={"jsonschema2popo": ["*.tmpl"]},
     include_package_data=True,
     entry_points={
         "console_scripts": ["jsonschema2popo2=jsonschema2popo.jsonschema2popo:main"]

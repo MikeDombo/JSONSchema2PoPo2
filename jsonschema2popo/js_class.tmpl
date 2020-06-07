@@ -16,6 +16,8 @@ Array
 Buffer
 {%- elif type == "bool" -%}
 Boolean
+{%- elif type == "dict" -%}
+Object
 {%- elif type == "int" or type == "float" -%}
 Number
 {%- else -%}
@@ -210,7 +212,7 @@ Object.defineProperty({{ model.parent or model.name }}, "{{ name }}", {
 {% endif %}
 {% for subModel in model.subModels %}
 
-{{ model.name }}.{{ subModel.name }} = {{generate_class(subModel)|indent(4)}}
+{% if model.parent %}{{ model.parent }}.{% else %}{{ model.name }}.{%endif%}{{ subModel.name }} = {{generate_class(subModel)|indent(4)}}
 {% endfor %}
 {% if model.properties %}
 

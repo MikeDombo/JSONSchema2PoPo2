@@ -6,11 +6,11 @@ from reprlib import repr as limitedRepr
 
 {% macro type_check(prop, name=None) %}
 {% if prop._type and prop._type.type %}
-if not isinstance({{ name or prop._name }}, {{ get_type(prop, parent=prop._type.type.__name__ != "list", sub=False) }}):
+if {% if not prop._validations.required %}{{ name or prop._name }} is not None and {% endif %} not isinstance({{ name or prop._name }}, {{ get_type(prop, parent=prop._type.type.__name__ != "list", sub=False) }}):
     raise TypeError("{{prop._name}} must be {{ get_type(prop, parent=prop._type.type.__name__ != "list", sub=False) }}")
 {% endif %}
 {% if prop._type and prop._type.type.__name__ == 'list' and prop._type.subtype %}
-if not all(isinstance(i, {{ get_type(prop) }}) for i in {% if name %}{{ name }}{% else %}{{ prop._name }}{% endif %}):
+if {% if not prop._validations.required %}{{ name or prop._name }} is not None and {% endif %} not all(isinstance(i, {{ get_type(prop) }}) for i in {% if name %}{{ name }}{% else %}{{ prop._name }}{% endif %}):
     raise TypeError("{{prop._name}} list values must be {{ get_type(prop) }}")
 {% endif %}
 {% endmacro %}

@@ -157,6 +157,7 @@ class JsonSchema2Popo:
                     ):
                         model = model.copy()
                         model["name"] = _obj_name
+                        model["parent"] = sub_model
                         return model
 
             print("Unable to find object refs for ", "/".join(ref_path))
@@ -173,12 +174,18 @@ class JsonSchema2Popo:
             self.enum_used = True
 
         if "extends" in _obj and "$ref" in _obj["extends"]:
-            ref_path = _obj["extends"]["$ref"].split("/")[2:]
-            ref = join_str.join(ref_path)
-            if sub_model and sub_model.endswith(_obj_name):
-                subs = sub_model.split(".")[-1]
-                ref = ref[len(sub_model) - len(subs) :]
-            model["extends"] = ref
+            if _obj["extends"]["$ref"].endswith(".json"):
+                with open(_obj["extends"]["$ref"], "r") as f:
+                    ref_file = json.load(f)
+                    self.process(ref_file)
+                    model["extends"] = ref_file["title"]
+            else:
+                ref_path = _obj["extends"]["$ref"].split("/")[2:]
+                ref = join_str.join(ref_path)
+                if sub_model and sub_model.endswith(_obj_name):
+                    subs = sub_model.split(".")[-1]
+                    ref = ref[len(sub_model) - len(subs) :]
+                model["extends"] = ref
 
         model["properties"] = []
         if "properties" in _obj:
@@ -240,11 +247,19 @@ class JsonSchema2Popo:
                         "parent": parent_name,
                     }
 
-                    model["subModels"].append(
-                        self.definition_parser(
-                            sub_prefix + _prop_name, _prop, sub_model=parent_name
-                        )
+                    sub_mod = self.definition_parser(
+                        sub_prefix + _prop_name, _prop, sub_model=parent_name
                     )
+
+                    # Only generate sub models when the sub model actually has properties, otherwise treat is as
+                    # a dict, which is what an object is to JSON
+                    if sub_mod["properties"]:
+                        model["subModels"].append(sub_mod)
+                    else:
+                        _type = {
+                            "type": dict,
+                            "subtype": None,
+                        }
 
                     if "enum" in _prop:
                         self.enum_used = True
@@ -432,7 +447,9 @@ def format_python_file(filename):
         black.format_file_in_place(
             pathlib.Path(filename).absolute(),
             fast=True,
-            mode=black.FileMode(line_length=88, target_versions={black.TargetVersion.PY33}),
+            mode=black.FileMode(
+                line_length=88, target_versions={black.TargetVersion.PY33}
+            ),
             write_back=black.WriteBack.YES,
         )
     except:
