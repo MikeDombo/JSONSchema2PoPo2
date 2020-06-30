@@ -7,7 +7,7 @@ import re
 import pathlib
 
 import networkx
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, environment
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -17,8 +17,9 @@ class JsonSchema2Popo:
 
     PYTHON_CLASS_TEMPLATE_FNAME = "python_class.tmpl"
     JS_CLASS_TEMPLATE_FNAME = "js_class.tmpl"
+    GO_STRUCT_TEMPLATE_FNAME = "go_struct.tmpl"
 
-    TEMPLATES = {"python": PYTHON_CLASS_TEMPLATE_FNAME, "js": JS_CLASS_TEMPLATE_FNAME}
+    TEMPLATES = {"python": PYTHON_CLASS_TEMPLATE_FNAME, "js": JS_CLASS_TEMPLATE_FNAME, "go": GO_STRUCT_TEMPLATE_FNAME}
 
     J2P_TYPES = {
         "string": str,
@@ -39,15 +40,16 @@ class JsonSchema2Popo:
             yield something
 
     def __init__(
-        self,
-        use_types=False,
-        constructor_type_check=False,
-        use_slots=False,
-        generate_definitions=True,
-        generate_root=True,
-        translate_properties=False,
-        language="python",
-        namespace_path="",
+            self,
+            use_types=False,
+            constructor_type_check=False,
+            use_slots=False,
+            generate_definitions=True,
+            generate_root=True,
+            translate_properties=False,
+            language="python",
+            namespace_path="",
+            package_name=""
     ):
         self.list_used = False
         self.enum_used = False
@@ -65,6 +67,7 @@ class JsonSchema2Popo:
         self.translate_properties = translate_properties
         self.language = language
         self.namespace_path = namespace_path
+        self.package_name = package_name
 
         self.definitions = []
 
@@ -153,7 +156,7 @@ class JsonSchema2Popo:
                             break
 
                     if ref_path[len(ref_path) - 1] == self.strip_sub_prefix(
-                        model["name"]
+                            model["name"]
                     ):
                         model = model.copy()
                         model["name"] = _obj_name
@@ -184,7 +187,7 @@ class JsonSchema2Popo:
                 ref = join_str.join(ref_path)
                 if sub_model and sub_model.endswith(_obj_name):
                     subs = sub_model.split(".")[-1]
-                    ref = ref[len(sub_model) - len(subs) :]
+                    ref = ref[len(sub_model) - len(subs):]
                 model["extends"] = ref
 
         model["properties"] = []
@@ -268,9 +271,9 @@ class JsonSchema2Popo:
                 if "format" in _prop:
                     _format = _prop["format"]
                 if (
-                    _type["type"] == list
-                    and "items" in _prop
-                    and isinstance(_prop["items"], list)
+                        _type["type"] == list
+                        and "items" in _prop
+                        and isinstance(_prop["items"], list)
                 ):
                     _format = _prop["items"][0]["format"]
 
@@ -318,9 +321,9 @@ class JsonSchema2Popo:
                     if "type" in t["items"][0]:
                         _subtype = self.J2P_TYPES[t["items"][0]["type"]]
                     elif (
-                        "$ref" in t["items"][0]
-                        or "oneOf" in t["items"][0]
-                        and len(t["items"][0]["oneOf"]) == 1
+                            "$ref" in t["items"][0]
+                            or "oneOf" in t["items"][0]
+                            and len(t["items"][0]["oneOf"]) == 1
                     ):
                         if "$ref" in t["items"][0]:
                             ref = t["items"][0]["$ref"]
@@ -331,9 +334,9 @@ class JsonSchema2Popo:
                     if "type" in t["items"]:
                         _subtype = self.J2P_TYPES[t["items"]["type"]]
                     elif (
-                        "$ref" in t["items"]
-                        or "oneOf" in t["items"]
-                        and len(t["items"]["oneOf"]) == 1
+                            "$ref" in t["items"]
+                            or "oneOf" in t["items"]
+                            and len(t["items"]["oneOf"]) == 1
                     ):
                         if "$ref" in t["items"]:
                             ref = t["items"]["$ref"]
@@ -345,10 +348,10 @@ class JsonSchema2Popo:
             elif t["type"]:
                 _type = self.J2P_TYPES[t["type"]]
                 if (
-                    _type == str
-                    and "media" in t
-                    and "binaryEncoding" in t["media"]
-                    and t["media"]["binaryEncoding"] == "base64"
+                        _type == str
+                        and "media" in t
+                        and "binaryEncoding" in t["media"]
+                        and t["media"]["binaryEncoding"] == "base64"
                 ):
                     _type = bytes
         elif "$ref" in t:
@@ -366,6 +369,7 @@ class JsonSchema2Popo:
             list_used=self.list_used,
             use_slots=self.use_slots,
             namespace_path=self.namespace_path,
+            package_name=self.package_name,
         ).dump(filename)
         if hasattr(filename, "close"):
             filename.close()
@@ -437,6 +441,11 @@ def init_parser():
         "--namespace-path",
         help="Namespace path to be prepended to the @memberOf for JSDoc (only used for JS)",
     )
+    parser.add_argument(
+        "--package-name",
+        help="Package name for generated code (only used for Go)",
+        default="generated"
+    )
     return parser
 
 
@@ -474,6 +483,10 @@ def format_js_file(filename):
         pass
 
 
+def format_go_file(filename):
+    os.system("go fmt " + filename)
+
+
 def main():
     parser = init_parser()
     args = parser.parse_args()
@@ -487,6 +500,7 @@ def main():
         translate_properties=args.translate_properties,
         language=args.language,
         namespace_path=args.namespace_path,
+        package_name=args.package_name
     )
     loader.load(args.json_schema_file)
 
@@ -496,6 +510,8 @@ def main():
         format_python_file(outfile.name)
     elif args.language == "js":
         format_js_file(outfile.name)
+    elif args.language == "go":
+        format_go_file(outfile.name)
 
 
 if __name__ == "__main__":

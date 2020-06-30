@@ -1,0 +1,63 @@
+{% macro sentence_case(text) -%}
+    {{ text[0]|upper}}{{text[1:] }}
+{%- endmacro -%}
+{%- macro translate_type(type, module=False) -%}
+{%- if type is none or type.type is none -%}
+nil
+{%- elif type == "str" or type.type == "str" -%}
+string
+{%- elif type == "list" or type.type == "list" -%}
+[]{{translate_type(type.subtype)}}
+{%- elif type == "bytes" or type.type == "bytes" -%}
+*[]byte
+{%- elif type == "bool" or type.type == "bool" -%}
+bool
+{%- elif type == "dict" or type.type == "dict" -%}
+map[string]interface{}
+{%- elif type == "int" or type.type == "int" -%}
+int64
+{%- elif type == "float" or type.type == "float" -%}
+float64
+{%- else -%}
+{{ type }}
+{%- endif -%}
+{%- endmacro -%}
+{% macro get_type(prop, parent=True, sub=True, module=False) -%}{{ translate_type(parent and prop._type.parent or sub and prop._type.subtype.__name__ or sub and prop._type.subtype or prop._type.type.__name__ or prop._type.type or None, module=module)-}}{%- endmacro -%}
+
+package {{package_name}}
+
+{% macro generate_class(model) -%}
+{% if model.comment %}
+{% for c in model.comment.split("\n") %}
+// {{ c }}
+{% endfor %}
+{% endif %}
+{% if not model.enum %}
+type {{ (model.parent or model.name) | replace(".", "")}} struct {
+{% for prop in model.properties %}
+    {{sentence_case(prop._name)}} {{get_type(prop) | replace(".", "")}} `json:"{{prop._original_name}}"`
+
+{% endfor %}
+}
+{% for subModel in model.subModels %}
+{{generate_class(subModel)}}
+{% endfor %}
+{% else %}
+type {{model.name}} {{translate_type(model.type.subtype.__name__ or model.type.type.__name__)}}
+
+const (
+{% for name, value in model.enum.items() %}
+    {{model.name}}_{{name}} = {% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or
+    model.text_type == "number" %}{{value}}{% endif %}
+
+{% endfor %}
+
+)
+{% endif %}
+{% endmacro %}
+
+
+{%- for model in models %}
+{{-generate_class(model)}}
+
+{% endfor %}
