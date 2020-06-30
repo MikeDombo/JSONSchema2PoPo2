@@ -4,7 +4,8 @@
 {% macro go_name(model) -%}
 {{ (model.parent or model.name) | replace(".", "")}}
 {%- endmacro -%}
-{% macro translate_bool(bool) %}{% if bool is sameas True %}true{% elif bool is sameas False %}false{% elif bool is none %}nil{% else %}{{ bool }}{% endif %}{% endmacro %}
+{% macro translate_bool(bool) %}{% if bool is sameas True %}true{% elif bool is sameas False %}false{% elif bool is none
+ %}nil{% elif bool is number %}int64({{bool}}){% else %}{{ bool }}{% endif %}{% endmacro %}
 
 {%- macro translate_type(type, module=False) -%}
 {%- if type is none or type.type is none -%}
@@ -41,10 +42,7 @@ var {{go_name(model)}}Formats = map[string]string {
 var {{go_name(model)}}Validations = map[string]map[string]interface{} {
 {% for prop in model.properties if prop._validations %}
     "{{ prop._name }}": { {% for type, value in prop._validations.items() %}"{{ type }}": {% if type ==
-     "pattern" %}"{{ value | replace ("\\", "\\\\") | replace("\"", "\\\"")}}"{% else %}{{ translate_bool(value) }}{%
-     endif
-     %},{%
-     endfor %}},
+     "pattern" %}"{{ value | replace ("\\", "\\\\") | replace("\"", "\\\"")}}"{% else %}{{ translate_bool(value) }}{%endif%},{% endfor %}},
 {% endfor %}
 }
 
