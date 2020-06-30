@@ -1,6 +1,11 @@
 {% macro sentence_case(text) -%}
     {{ text[0]|upper}}{{text[1:] }}
 {%- endmacro -%}
+{% macro go_name(model) -%}
+{{ (model.parent or model.name) | replace(".", "")}}
+{%- endmacro -%}
+{% macro translate_bool(bool) %}{% if bool is sameas True %}true{% elif bool is sameas False %}false{% elif bool is none %}nil{% else %}{{ bool }}{% endif %}{% endmacro %}
+
 {%- macro translate_type(type, module=False) -%}
 {%- if type is none or type.type is none -%}
 nil
@@ -27,15 +32,30 @@ float64
 package {{package_name}}
 
 {% macro generate_class(model) -%}
+{% if not model.enum %}
+var {{go_name(model)}}Formats = map[string]string {
+{% for prop in model.properties if prop._format %}
+    "{{prop._name}}": "{{prop._format}}",
+{% endfor %}
+}
+var {{go_name(model)}}Validations = map[string]map[string]interface{} {
+{% for prop in model.properties if prop._validations %}
+    "{{ prop._name }}": { {% for type, value in prop._validations.items() %}"{{ type }}": {% if type ==
+     "pattern" %}"{{ value | replace ("\\", "\\\\") | replace("\"", "\\\"")}}"{% else %}{{ translate_bool(value) }}{%
+     endif
+     %},{%
+     endfor %}},
+{% endfor %}
+}
+
 {% if model.comment %}
 {% for c in model.comment.split("\n") %}
 // {{ c }}
 {% endfor %}
 {% endif %}
-{% if not model.enum %}
-type {{ (model.parent or model.name) | replace(".", "")}} struct {
+type {{ go_name(model) }} struct {
 {% for prop in model.properties %}
-    {{sentence_case(prop._name)}} {{get_type(prop) | replace(".", "")}} `json:"{{prop._original_name}}"`
+    {{sentence_case(prop._name)}} {{get_type(prop) | replace(".", "")}} `json:"{{prop._original_name}},omitempty"`
 
 {% endfor %}
 }
@@ -43,16 +63,27 @@ type {{ (model.parent or model.name) | replace(".", "")}} struct {
 {{generate_class(subModel)}}
 {% endfor %}
 {% else %}
-type {{model.name}} {{translate_type(model.type.subtype.__name__ or model.type.type.__name__)}}
+type {{ go_name(model) }} {{translate_type(model.type.subtype.__name__ or model.type
+.type.__name__)}}
 
-const (
+{% if model.comment %}
+{% for c in model.comment.split("\n") %}
+// {{ c }}
+{% endfor %}
+{% endif %}
+var {{ go_name(model) }}Options = struct{
+    {% for name, value in model.enum.items() %}
+        {{name}} {{ go_name(model) }}
+
+    {% endfor %}
+}{
 {% for name, value in model.enum.items() %}
-    {{model.name}}_{{name}} = {% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or
-    model.text_type == "number" %}{{value}}{% endif %}
+    {{name}}: {% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or
+    model.text_type == "number" %}{{value}}{% endif %},
 
 {% endfor %}
 
-)
+}
 {% endif %}
 {% endmacro %}
 
