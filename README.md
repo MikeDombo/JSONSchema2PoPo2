@@ -16,6 +16,8 @@ Similar to the Java project [JSONSchema2PoJo](https://github.com/joelittlejohn/j
 | Python | Using Types | \>= Python  3.5 | Uses Python [type hints](https://www.python.org/dev/peps/pep-0484/) in code
 |  |  |  |
 | JavaScript | Basic Generation | \>= ES2019 (\>= NodeJS 12.x) | Uses ES [classes](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes) and [private fields](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/Private_class_fields)
+|  |  |  |
+| Go | Basic Generation | Any Go | N/A |
 
 ## Installation
 ```
@@ -39,6 +41,7 @@ jsonschema2popo2 -o /path/to/output_file.py /path/to/json_schema.json
 - -tp, --translate-properties - Translate property names to be snake_case. With this enabled, inner classes will no longer be prefixed by "_" since their names won't collide with the property name.
 - -l, --language - Language to generate in. Either "js" or "python".
 - --namespace-path - Namespace path to be prepended to the @memberOf for JSDoc (only used for JS)
+- --package-name - Package name for generated code (only used for Go). Default is "generated".
 
 ### Encode Generated Object to JSON:
 **Python**
@@ -53,6 +56,11 @@ json.dumps(g.as_dict())
 g = new GeneratedClass();
 JSON.stringify(g.asMap());
 ```
+**Go**
+```go
+g := generated.GeneratedClass{};
+str, err := json.Marshal(g)
+```
 
 ### Decode JSON into Generated Object:
 **Python**
@@ -63,6 +71,11 @@ g = GeneratedClass.from_dict(json.loads(data))
 **JavaScript**
 ```javascript
 const g = GeneratedClass.fromMap(JSON.parse(data));
+```
+**Go**
+```go
+var g generated.GeneratedClass
+err := json.Unmarshal(data, &g)
 ```
 
 ### JSON Schema Format

@@ -17,8 +17,13 @@ class JsonSchema2Popo:
 
     PYTHON_CLASS_TEMPLATE_FNAME = "python_class.tmpl"
     JS_CLASS_TEMPLATE_FNAME = "js_class.tmpl"
+    GO_STRUCT_TEMPLATE_FNAME = "go_struct.tmpl"
 
-    TEMPLATES = {"python": PYTHON_CLASS_TEMPLATE_FNAME, "js": JS_CLASS_TEMPLATE_FNAME}
+    TEMPLATES = {
+        "python": PYTHON_CLASS_TEMPLATE_FNAME,
+        "js": JS_CLASS_TEMPLATE_FNAME,
+        "go": GO_STRUCT_TEMPLATE_FNAME,
+    }
 
     J2P_TYPES = {
         "string": str,
@@ -48,6 +53,7 @@ class JsonSchema2Popo:
         translate_properties=False,
         language="python",
         namespace_path="",
+        package_name="",
     ):
         self.list_used = False
         self.enum_used = False
@@ -65,6 +71,7 @@ class JsonSchema2Popo:
         self.translate_properties = translate_properties
         self.language = language
         self.namespace_path = namespace_path
+        self.package_name = package_name
 
         self.definitions = []
 
@@ -366,6 +373,7 @@ class JsonSchema2Popo:
             list_used=self.list_used,
             use_slots=self.use_slots,
             namespace_path=self.namespace_path,
+            package_name=self.package_name,
         ).dump(filename)
         if hasattr(filename, "close"):
             filename.close()
@@ -437,6 +445,11 @@ def init_parser():
         "--namespace-path",
         help="Namespace path to be prepended to the @memberOf for JSDoc (only used for JS)",
     )
+    parser.add_argument(
+        "--package-name",
+        help="Package name for generated code (only used for Go)",
+        default="generated",
+    )
     return parser
 
 
@@ -474,6 +487,10 @@ def format_js_file(filename):
         pass
 
 
+def format_go_file(filename):
+    os.system("go fmt " + filename)
+
+
 def main():
     parser = init_parser()
     args = parser.parse_args()
@@ -487,6 +504,7 @@ def main():
         translate_properties=args.translate_properties,
         language=args.language,
         namespace_path=args.namespace_path,
+        package_name=args.package_name,
     )
     loader.load(args.json_schema_file)
 
@@ -496,6 +514,8 @@ def main():
         format_python_file(outfile.name)
     elif args.language == "js":
         format_js_file(outfile.name)
+    elif args.language == "go":
+        format_go_file(outfile.name)
 
 
 if __name__ == "__main__":

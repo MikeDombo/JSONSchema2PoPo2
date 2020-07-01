@@ -1,6 +1,8 @@
 import importlib.util
 import json
 import os
+import pathlib
+import subprocess
 import sys
 import unittest
 from types import ModuleType
@@ -9,7 +11,11 @@ import mypy.main
 from mypy.fscache import FileSystemCache
 
 from jsonschema2popo import jsonschema2popo
-from jsonschema2popo.jsonschema2popo import format_python_file, format_js_file
+from jsonschema2popo.jsonschema2popo import (
+    format_python_file,
+    format_js_file,
+    format_go_file,
+)
 
 DEFINITIONS_BASIC_GENERATION = """{
             "definitions": {
@@ -52,9 +58,11 @@ class JsonSchema2Popo(unittest.TestCase):
         try:
             self.mypy_test()
             self.js_test()
+            self.go_test()
         finally:
             os.remove(self.test_file)
             os.remove(self.test_file_js)
+            os.remove(self.test_file_go)
 
     def setUp(self):
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -69,6 +77,16 @@ class JsonSchema2Popo(unittest.TestCase):
         self.assertEqual(
             0, os.system(f"node test_js.js {self.id()} {self.test_file_js}")
         )
+
+    def go_test(self):
+        proc = subprocess.run(
+            args=["go", "run", "-tags=" + self.id(), "test_go.go"],
+            capture_output=True,
+            env={**os.environ, "GOPATH": str(pathlib.Path("generated").absolute())},
+        )
+        print(proc.stderr.decode("utf-8"))
+        print(proc.stdout.decode("utf-8"))
+        self.assertEqual(0, proc.returncode)
 
     def mypy_test(self):
         """
@@ -100,6 +118,11 @@ class JsonSchema2Popo(unittest.TestCase):
     def generate_files(self, schema, **kwargs):
         self.test_file = f"{self.id()}.py"
         self.test_file_js = f"{self.id()}.js"
+        try:
+            os.mkdir("generated")
+        except:
+            pass
+        self.test_file_go = f"generated/{self.id()}.go"
 
         loader = jsonschema2popo.JsonSchema2Popo(
             use_types=True,
@@ -122,6 +145,13 @@ class JsonSchema2Popo(unittest.TestCase):
         loader.process(json.loads(schema))
         loader.write_file(self.test_file_js)
         format_js_file(self.test_file_js)
+
+        loader = jsonschema2popo.JsonSchema2Popo(
+            language="go", package_name="generated", **kwargs,
+        )
+        loader.process(json.loads(schema))
+        loader.write_file(self.test_file_go)
+        format_go_file(self.test_file_go)
 
     def test_root_basic_generation(self):
         self.generate_files(
