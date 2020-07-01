@@ -7,7 +7,7 @@ import re
 import pathlib
 
 import networkx
-from jinja2 import Environment, FileSystemLoader, environment
+from jinja2 import Environment, FileSystemLoader
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 

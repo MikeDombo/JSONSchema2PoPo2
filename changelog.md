@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.2.0
+
+- Added *beta* Go generation. Interface of generated code should not yet be considered stable. Please create a GitHub
+ issue to provide feedback on the generated code.
+
 ## 2.1.0
 
 -  Python generation properly typechecks required properties, now if a prop isn't required, you can set it to `None`.
