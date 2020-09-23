@@ -54,7 +54,7 @@ class JsonSchema2Popo:
         language="python",
         namespace_path="",
         package_name="",
-        custom_template=""
+        custom_template="",
     ):
         self.list_used = False
         self.enum_used = False
@@ -415,7 +415,7 @@ def init_parser():
         "-jt",
         "--custom-template",
         help="Path to custom Jinja template file",
-        default=""
+        default="",
     )
     parser.add_argument("-t", "--use-types", action="store_true", help="Add typings")
     parser.add_argument(
@@ -516,7 +516,7 @@ def main():
         language=args.language,
         namespace_path=args.namespace_path,
         package_name=args.package_name,
-        custom_template=args.custom_template
+        custom_template=args.custom_template,
     )
     loader.load(args.json_schema_file)
 
