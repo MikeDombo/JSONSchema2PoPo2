@@ -414,8 +414,8 @@ def init_parser():
     parser.add_argument(
         "-jt",
         "--custom-template",
-        help="Path to custom Jinja template file to use",
-        default="",
+        help="Path to custom Jinja template file",
+        default=""
     )
     parser.add_argument("-t", "--use-types", action="store_true", help="Add typings")
     parser.add_argument(
