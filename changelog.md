@@ -1,4 +1,5 @@
 # Changelog
+- added support for custom template file
 
 ## 2.2.0
 

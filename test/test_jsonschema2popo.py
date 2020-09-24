@@ -147,7 +147,9 @@ class JsonSchema2Popo(unittest.TestCase):
         format_js_file(self.test_file_js)
 
         loader = jsonschema2popo.JsonSchema2Popo(
-            language="go", package_name="generated", **kwargs,
+            language="go",
+            package_name="generated",
+            **kwargs,
         )
         loader.process(json.loads(schema))
         loader.write_file(self.test_file_go)

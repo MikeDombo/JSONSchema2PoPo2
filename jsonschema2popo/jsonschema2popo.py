@@ -54,11 +54,14 @@ class JsonSchema2Popo:
         language="python",
         namespace_path="",
         package_name="",
+        custom_template="",
     ):
         self.list_used = False
         self.enum_used = False
+
+        search_path = SCRIPT_DIR if not custom_template else os.getcwd()
         self.jinja = Environment(
-            loader=FileSystemLoader(searchpath=SCRIPT_DIR), trim_blocks=True
+            loader=FileSystemLoader(searchpath=search_path), trim_blocks=True
         )
         self.jinja.filters["regex_replace"] = lambda s, find, replace: re.sub(
             find, replace, s
@@ -72,6 +75,7 @@ class JsonSchema2Popo:
         self.language = language
         self.namespace_path = namespace_path
         self.package_name = package_name
+        self.custom_template = custom_template
 
         self.definitions = []
 
@@ -365,7 +369,8 @@ class JsonSchema2Popo:
         return {"type": _type, "subtype": _subtype}
 
     def write_file(self, filename):
-        self.jinja.get_template(self.TEMPLATES[self.language]).stream(
+        template = self.custom_template or self.TEMPLATES[self.language]
+        self.jinja.get_template(template).stream(
             models=self.definitions,
             use_types=self.use_types,
             constructor_type_check=self.constructor_type_check,
@@ -405,6 +410,12 @@ def init_parser():
         type=argparse.FileType("w", encoding="utf-8"),
         help="Path to file output",
         default="model.py",
+    )
+    parser.add_argument(
+        "-jt",
+        "--custom-template",
+        help="Path to custom Jinja template file",
+        default="",
     )
     parser.add_argument("-t", "--use-types", action="store_true", help="Add typings")
     parser.add_argument(
@@ -505,6 +516,7 @@ def main():
         language=args.language,
         namespace_path=args.namespace_path,
         package_name=args.package_name,
+        custom_template=args.custom_template,
     )
     loader.load(args.json_schema_file)
 
