@@ -3,9 +3,9 @@
 package test
 
 import (
-	"../generated"
+	"generated"
 )
 
 func Test() {
-	_ = generated.RootObject{};
+	_ = generated.RootObject{}
 }

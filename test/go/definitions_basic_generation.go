@@ -3,10 +3,10 @@
 package test
 
 import (
-	"../generated"
+	"generated"
 )
 
 func Test() {
-	_ = generated.RootObject{};
-	_ = generated.ABcd{};
+	_ = generated.RootObject{}
+	_ = generated.ABcd{}
 }

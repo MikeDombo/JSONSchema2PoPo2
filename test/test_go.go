@@ -1,7 +1,7 @@
 package main
 
 import (
-	"./go"
+	"test"
 )
 
 func main() {

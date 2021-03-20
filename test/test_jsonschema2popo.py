@@ -82,7 +82,7 @@ class JsonSchema2Popo(unittest.TestCase):
         proc = subprocess.run(
             args=["go", "run", "-tags=" + self.id(), "test_go.go"],
             capture_output=True,
-            env={**os.environ, "GOPATH": str(pathlib.Path("generated").absolute())},
+            env={**os.environ},
         )
         print(proc.stderr.decode("utf-8"))
         print(proc.stdout.decode("utf-8"))
@@ -116,10 +116,10 @@ class JsonSchema2Popo(unittest.TestCase):
         return import_file(self.test_file)
 
     def generate_files(self, schema, **kwargs):
-        self.test_file = f"{self.id()}.py"
-        self.test_file_js = f"{self.id()}.js"
+        self.test_file = f"generated/{self.id()}.py"
+        self.test_file_js = f"generated/{self.id()}.js"
         try:
-            os.mkdir("generated")
+            os.makedirs("generated", exist_ok=True)
         except:
             pass
         self.test_file_go = f"generated/{self.id()}.go"

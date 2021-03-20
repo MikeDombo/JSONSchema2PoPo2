@@ -3,8 +3,8 @@
 package test
 
 import (
-	"../generated"
 	"fmt"
+	"generated"
 	"os"
 )
 

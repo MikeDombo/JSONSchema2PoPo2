@@ -3,7 +3,7 @@
 package test
 
 import (
-	"../generated"
+	"generated"
 )
 
 func Test() {
