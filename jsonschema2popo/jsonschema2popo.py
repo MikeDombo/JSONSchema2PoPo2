@@ -8,6 +8,7 @@ import pathlib
 
 import networkx
 from jinja2 import Environment, FileSystemLoader
+from . import __version__
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -110,7 +111,8 @@ class JsonSchema2Popo:
 
             self.definitions = []
             if self.generate_definitions:
-                for model_name in networkx.topological_sort(g):
+                # use lexicographical topo sort so that the generation order is stable
+                for model_name in networkx.lexicographical_topological_sort(g):
                     if model_name in models_map:
                         # insert to front so that the sorting is reversed
                         self.definitions.insert(0, models_map[model_name])
@@ -460,6 +462,9 @@ def init_parser():
         "--package-name",
         help="Package name for generated code (only used for Go)",
         default="generated",
+    )
+    parser.add_argument(
+        "--version", action="version", version="%(prog)s v{}".format(__version__)
     )
     return parser
 
