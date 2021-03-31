@@ -323,6 +323,7 @@ class JsonSchema2Popo:
     def type_parser(self, t):
         _type = None
         _subtype = None
+        _subformat = None
         if "type" in t:
             if t["type"] == "array" and "items" in t:
                 self.list_used = True
@@ -330,6 +331,8 @@ class JsonSchema2Popo:
                 if isinstance(t["items"], list):
                     if "type" in t["items"][0]:
                         _subtype = self.J2P_TYPES[t["items"][0]["type"]]
+                        if "format" in t["items"][0]:
+                            _subformat = t["items"][0]["format"]
                     elif (
                         "$ref" in t["items"][0]
                         or "oneOf" in t["items"][0]
@@ -343,6 +346,8 @@ class JsonSchema2Popo:
                 elif isinstance(t["items"], dict):
                     if "type" in t["items"]:
                         _subtype = self.J2P_TYPES[t["items"]["type"]]
+                        if "format" in t["items"]:
+                            _subformat = t["items"]["format"]
                     elif (
                         "$ref" in t["items"]
                         or "oneOf" in t["items"]
@@ -368,7 +373,7 @@ class JsonSchema2Popo:
             _type = t["$ref"].split("/")[-1]
         elif "anyOf" in t or "allOf" in t or "oneOf" in t:
             _type = list
-        return {"type": _type, "subtype": _subtype}
+        return {"type": _type, "subtype": _subtype, "subformat": _subformat}
 
     def write_file(self, filename):
         template = self.custom_template or self.TEMPLATES[self.language]
