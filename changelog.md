@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.3
+
+- Fix for #8 with #9. Enum generation now works in the root object
+
 ## 2.2.2
 
 - Added `--version` option

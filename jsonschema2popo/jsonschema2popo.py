@@ -266,7 +266,7 @@ class JsonSchema2Popo:
 
                     # Only generate sub models when the sub model actually has properties, otherwise treat is as
                     # a dict, which is what an object is to JSON
-                    if sub_mod["properties"]:
+                    if sub_mod["properties"] or "enum" in sub_mod:
                         model["subModels"].append(sub_mod)
                     else:
                         _type = {
