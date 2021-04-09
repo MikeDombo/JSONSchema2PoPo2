@@ -13,5 +13,6 @@ func Test() {
 		ListInt: []int64{0, 1, 2},
 		String:  "ABC",
 		Object:  map[string]interface{}{"A": "X"},
+		StringEnum: generated.Abcd_StringEnumOptions.A,
 	}
 }

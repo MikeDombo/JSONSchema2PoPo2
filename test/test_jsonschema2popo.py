@@ -177,6 +177,10 @@ class JsonSchema2Popo(unittest.TestCase):
                 },
                 "Object": {
                     "type": "object"
+                },
+                "StringEnum": {
+                    "type": "string",
+                    "enum": ["A", "b", "c"]
                 }
             }
         }"""
@@ -191,6 +195,7 @@ class JsonSchema2Popo(unittest.TestCase):
                 "ListInt": [0, 1, 2],
                 "String": "ABC",
                 "Object": {"A": "X"},
+                "StringEnum": "A",
             }
         )
         self.assertEqual(a.Int, 0)
@@ -198,6 +203,7 @@ class JsonSchema2Popo(unittest.TestCase):
         self.assertEqual(a.ListInt, [0, 1, 2])
         self.assertEqual(a.String, "ABC")
         self.assertEqual(a.Object, {"A": "X"})
+        self.assertEqual(a.StringEnum.value, "A")
 
         self.assertRaisesRegex(
             TypeError, "Int must be int", lambda: foo.Abcd.from_dict({"Int": 0.1})
@@ -219,6 +225,11 @@ class JsonSchema2Popo(unittest.TestCase):
         )
         self.assertRaisesRegex(
             TypeError, "String must be str", lambda: foo.Abcd.from_dict({"String": 0})
+        )
+        self.assertRaisesRegex(
+            ValueError,
+            "is not a valid .*_StringEnum",
+            lambda: foo.Abcd._StringEnum.from_dict({"String": 0}),
         )
 
     def test_root_string_enum(self):

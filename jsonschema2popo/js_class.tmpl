@@ -206,7 +206,7 @@ Object.defineProperty({{ model.parent or model.name }}, "optionsFlipped", {
  * @readonly
  */
 Object.defineProperty({{ model.parent or model.name }}, "{{ name }}", {
-    value: new {{ model.name }}({% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %})
+    value: new {{ model.parent or model.name }}({% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %})
 });
 {% endfor %}
 {% endif %}

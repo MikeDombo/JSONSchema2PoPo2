@@ -47,6 +47,7 @@ f.test_jsonschema2popo_test_root_basic_generation = (filename) => {
             "ListInt": [0, 1, 2],
             "String": "ABC",
             "Object": {"A": "X"},
+            "StringEnum": "A"
         }
     );
     assertEquals(a.Int, 0);
@@ -54,6 +55,7 @@ f.test_jsonschema2popo_test_root_basic_generation = (filename) => {
     assertEquals(a.ListInt, [0, 1, 2]);
     assertEquals(a.String, "ABC");
     assertEquals(a.Object, {"A": "X"});
+    assertEquals(a.StringEnum.asMap(), "A");
 
     assertThrows(
         Error, "Int must be Number", () => foo.Abcd.fromMap({"Int": true})
@@ -75,6 +77,9 @@ f.test_jsonschema2popo_test_root_basic_generation = (filename) => {
     )
     assertThrows(
         Error, "String must be String", () => foo.Abcd.fromMap({"String": 0})
+    )
+    assertThrows(
+        Error, "Value must be one of the enumerated options", () => new foo.Abcd._StringEnum("abc")
     )
 }
 
