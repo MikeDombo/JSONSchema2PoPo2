@@ -49,16 +49,18 @@ null
 {% endif %}
 {% endmacro %}
 
-{% macro get_type(prop, parent=True, sub=True, module=False) -%}{{ translate_type(parent and prop._type.parent or sub and prop._type.subtype.__name__ or sub and prop._type.subtype or prop._type.type.__name__ or prop._type.type or None, module=module)-}}{%- endmacro -%}
+{% macro get_type(prop, parent=True, sub=True, module=False) -%}{{ translate_type(parent and prop.definition.parent or
+sub and prop.definition|attr("item_type") and prop.definition.string_item_type or prop.definition.m_type or None,
+module=module)-}}{%- endmacro -%}
 {% macro type_check(prop, name=None) %}
-{% if prop._type and prop._type.type %}
-if ({{ name or prop._name }} !== null && !({{ check_type(get_type(prop, parent=prop._type.type.__name__ != "list", sub=False), name or prop._name) }})) {
-    throw new Error("{{prop._name}} must be {{get_type(prop, parent=prop._type.type.__name__ != "list", sub=False)-}}");
+{% if prop.m_type and prop.m_type.type %}
+if ({{ name or prop.name }} !== null && !({{ check_type(get_type(prop, parent=prop.m_type.type.__name__ != "list", sub=False), name or prop.name) }})) {
+    throw new Error("{{prop.name}} must be {{get_type(prop, parent=prop.m_type.type.__name__ != "list", sub=False)-}}");
 }
 {% endif %}
-{% if prop._type and prop._type.type.__name__ == 'list' and prop._type.subtype %}
-if ({{ name or prop._name }} !== null && !{{ name or prop._name }}.every((v) => {{ check_type(get_type(prop), "v") }})) {
-    throw new Error("{{prop._name}} array values must be {{ get_type(prop)-}}");
+{% if prop.m_type and prop.m_type.type.__name__ == 'list' and prop.m_type.subtype %}
+if ({{ name or prop.name }} !== null && !{{ name or prop.name }}.every((v) => {{ check_type(get_type(prop), "v") }})) {
+    throw new Error("{{prop.name}} array values must be {{ get_type(prop)-}}");
 }
 {% endif %}
 {% endmacro %}
@@ -74,18 +76,18 @@ if ({{ name or prop._name }} !== null && !{{ name or prop._name }}.every((v) => 
  */
 class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %} {
 {% for prop in model.properties %}
-    #__{{prop._name}} = null;
+    #__{{prop.name}} = null;
 {% endfor %}
 
 {% if not model.enum %}
     /**
 {% for prop in model.properties %}
-     * {{ jsdoc_param(prop._name, prop) }}
+     * {{ jsdoc_param(prop.name, prop) }}
 {% endfor %}
      */
     constructor(
 {% for prop in model.properties %}
-            {{prop._name}}={{translate_bool(prop._default)}},
+            {{prop.name}}={{translate_bool(prop._default)}},
 {% endfor %}
 {% if model.extends %}
             ...superArgs
@@ -100,7 +102,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% endfor %}
 {% endif %}
 {% for prop in model.properties %}
-        this.#__{{prop._name}} = {{prop._name}};
+        this.#__{{prop.name}} = {{prop.name}};
 {% endfor %}
     }
 {% else %}
@@ -120,23 +122,23 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
      * @returns {{ jsdoc_type(prop) }}
 
      */
-    get {{prop._name}}() {
-        return this.#__{{prop._name}};
+    get {{prop.name}}() {
+        return this.#__{{prop.name}};
     }
     /**
      * {{ jsdoc_param("value", prop) }}
      */
-    set {{prop._name}}(value) {
+    set {{prop.name}}(value) {
         {{ type_check(prop, "value")|indent(8) }}
-        this.#__{{prop._name}} = value;
+        this.#__{{prop.name}} = value;
     }
     /**
      * {{ jsdoc_param("value", prop) }}
      * @returns {% raw %}{{% endraw %}{% if namespace_path %}{{ namespace_path + "." }}{% endif %}{% if model.parent %}{{ ".".join(model.parent.split(".")[:-1])+"~"+model.parent}}{% else %}{{ model.name }}{% endif %}{% raw %}}{% endraw %}
 
      */
-    with{{sentence_case(prop._name)}}(value) {
-        this.{{prop._name}} = value;
+    with{{sentence_case(prop.name)}}(value) {
+        this.{{prop.name}} = value;
         return this;
     }
 
@@ -149,10 +151,10 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
         const ret = new {{ model.parent or model.name }}();
 {% for prop in model.properties %}
         if ("{{ prop._original_name }}" in d) {
-{% if prop._type.type.__name__ == 'list' %}
-            ret.{{ prop._name }} = d["{{ prop._original_name }}"].reduce((acc, v) => {acc.push(Object.prototype.hasOwnProperty.call({{ get_type(prop) }}, "fromMap") ? {{ get_type(prop) }}.fromMap(v) : v); return acc;}, []);
+{% if prop.m_type.type.__name__ == 'list' %}
+            ret.{{ prop.name }} = d["{{ prop._original_name }}"].reduce((acc, v) => {acc.push(Object.prototype.hasOwnProperty.call({{ get_type(prop) }}, "fromMap") ? {{ get_type(prop) }}.fromMap(v) : v); return acc;}, []);
 {% else %}
-            ret.{{ prop._name }} = Object.prototype.hasOwnProperty.call({{ get_type(prop) }}, "fromMap") ? {{ get_type(prop) }}.fromMap(d["{{prop._original_name}}"]) : d["{{ prop._original_name }}"];
+            ret.{{ prop.name }} = Object.prototype.hasOwnProperty.call({{ get_type(prop) }}, "fromMap") ? {{ get_type(prop) }}.fromMap(d["{{prop._original_name}}"]) : d["{{ prop._original_name }}"];
 {% endif %}
         }
 {% endfor %}
@@ -171,11 +173,11 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
         const d = {};
 {% endif %}
 {% for prop in model.properties %}
-        if (this.{{prop._name}} !== null) {
-{% if prop._type.type.__name__ == "list" %}
-            d["{{prop._original_name}}"] = this.{{prop._name}}.reduce((acc, v) => {acc.push(Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(v), "asMap") ? v.asMap() : v); return acc;}, []);
+        if (this.{{prop.name}} !== null) {
+{% if prop.m_type.type.__name__ == "list" %}
+            d["{{prop._original_name}}"] = this.{{prop.name}}.reduce((acc, v) => {acc.push(Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(v), "asMap") ? v.asMap() : v); return acc;}, []);
 {% else %}
-            d["{{prop._original_name}}"] = Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(this.{{prop._name}}), "asMap") ? this.{{prop._name}}.asMap() : this.{{prop._name}};
+            d["{{prop._original_name}}"] = Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(this.{{prop.name}}), "asMap") ? this.{{prop.name}}.asMap() : this.{{prop.name}};
 {% endif %}
         }
 {% endfor %}
@@ -220,9 +222,9 @@ Object.defineProperty({{ model.parent or model.name }}, "typesMap", {
     value: {
 {% for prop in model.properties %}
 {% if get_type(prop, parent=False, sub=False) == "Array" %}
-    {{prop._name}}: {'type': Array, 'subtype': {{translate_type(prop._type.parent or prop._type.subtype.__name__ or prop._type.subtype or None)}}},
+    {{prop.name}}: {'type': Array, 'subtype': {{translate_type(prop.m_type.parent or prop.m_type.subtype.__name__ or prop.m_type.subtype or None)}}},
 {% else %}
-    {{prop._name}}: {'type': {{get_type(prop, parent=True, sub=False)}}, 'subtype': null},
+    {{prop.name}}: {'type': {{get_type(prop, parent=True, sub=False)}}, 'subtype': null},
 {% endif %}
 {% endfor %}
     }
@@ -230,14 +232,14 @@ Object.defineProperty({{ model.parent or model.name }}, "typesMap", {
 Object.defineProperty({{ model.parent or model.name }}, "formatsMap", {
     value: {
 {% for prop in model.properties if prop._format %}
-        {{prop._name}}: '{{prop._format}}',
+        {{prop.name}}: '{{prop._format}}',
 {% endfor %}
     }
 });
 Object.defineProperty({{ model.parent or model.name }}, "validationsMap", {
     value: {
 {% for prop in model.properties if prop._validations %}
-        '{{ prop._name }}': { {% for type, value in prop._validations.items() %}'{{ type }}': {% if type == "pattern" %}/{{ value }}/{% else %}{{ translate_bool(value) }}{% endif %},{% endfor %}},
+        '{{ prop.name }}': { {% for type, value in prop._validations.items() %}'{{ type }}': {% if type == "pattern" %}/{{ value }}/{% else %}{{ translate_bool(value) }}{% endif %},{% endfor %}},
 {% endfor %}
     }
 });
