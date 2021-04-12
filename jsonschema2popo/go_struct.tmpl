@@ -2,7 +2,7 @@
     {{ text[0]|upper}}{{text[1:] }}
 {%- endmacro -%}
 {% macro go_name(model) -%}
-{{ (model.parent or model.name) | replace(".", "")}}
+{{ (model.full_name_python_path()) | replace(".", "")}}
 {%- endmacro -%}
 {% macro translate_bool(bool) %}{% if bool is sameas True %}true{% elif bool is sameas False %}false{% elif bool is none
  %}nil{% elif bool is number %}int64({{bool}}){% else %}{{ bool }}{% endif %}{% endmacro %}
@@ -10,15 +10,19 @@
 {%- macro translate_type(prop) -%}
 {% if prop is string %}
 {% set type = prop %}
+{% elif prop.m_type and prop.m_type == "enum" %}
+{% set type = python_type(prop.value_type) %}
+{% elif prop.m_type %}
+{% set type = python_type(prop) %}
 {% else %}
-{% set type = prop._type.type.__name__ or prop._type.type %}
+{% set type = python_type(prop.definition) %}
 {% endif %}
 {%- if type is none -%}
 nil
 {%- elif type == "str" -%}
 string
 {%- elif type == "list" -%}
-[]{{prop._type.parent or translate_type(prop._type.subtype.__name__ or prop._type.subtype)}}
+[]{{translate_type(python_type(prop.definition.item_type))}}
 {%- elif type == "bytes" -%}
 *[]byte
 {%- elif type == "bool" -%}
@@ -30,22 +34,22 @@ int64
 {%- elif type == "float" -%}
 float64
 {%- else -%}
-{{("_type" in prop and prop._type.parent) or type }}
+{{ type }}
 {%- endif -%}
 {%- endmacro -%}
 
 package {{package_name}}
 
 {% macro generate_class(model) -%}
-{% if not model.enum %}
+{% if not model.m_type == "enum" %}
 var {{go_name(model)}}Formats = map[string]string {
-{% for prop in model.properties if prop._format %}
-    "{{prop._name}}": "{{prop._format}}",
+{% for prop in model.properties if prop.format %}
+    "{{trn(prop.name)}}": "{{prop.format}}",
 {% endfor %}
 }
 var {{go_name(model)}}Validations = map[string]map[string]interface{} {
-{% for prop in model.properties if prop._validations %}
-    "{{ prop._name }}": { {% for type, value in prop._validations.items() %}"{{ type }}": {% if type ==
+{% for prop in model.properties if prop.validations %}
+    "{{ trn(prop.name) }}": { {% for type, value in prop.validations.items() %}"{{ type }}": {% if type ==
      "pattern" %}"{{ value | replace ("\\", "\\\\") | replace("\"", "\\\"")}}"{% else %}{{ translate_bool(value) }}{%endif%},{% endfor %}},
 {% endfor %}
 }
@@ -57,16 +61,15 @@ var {{go_name(model)}}Validations = map[string]map[string]interface{} {
 {% endif %}
 type {{ go_name(model) }} struct {
 {% for prop in model.properties %}
-    {{sentence_case(prop._name)}} {{translate_type(prop) | replace(".", "")}} `json:"{{prop._original_name}},omitempty"`
+    {{sentence_case(trn(prop.name))}} {{translate_type(prop) | replace(".", "")}} `json:"{{prop.name}},omitempty"`
 
 {% endfor %}
 }
-{% for subModel in model.subModels %}
-{{generate_class(subModel)}}
+{% for child in model.children %}
+{{generate_class(child)}}
 {% endfor %}
 {% else %}
-type {{ go_name(model) }} {{translate_type(model.type.subtype.__name__ or model.type
-.type.__name__)}}
+type {{ go_name(model) }} {{translate_type(model)}}
 
 {% if model.comment %}
 {% for c in model.comment.split("\n") %}
@@ -74,14 +77,13 @@ type {{ go_name(model) }} {{translate_type(model.type.subtype.__name__ or model.
 {% endfor %}
 {% endif %}
 var {{ go_name(model) }}Options = struct{
-    {% for name, value in model.enum.items() %}
+    {% for name, value in model.values.items() %}
         {{name}} {{ go_name(model) }}
 
     {% endfor %}
 }{
-{% for name, value in model.enum.items() %}
-    {{name}}: {% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or
-    model.text_type == "number" %}{{value}}{% endif %},
+{% for name, value in model.values.items() %}
+    {{name}}: {% if model.value_type.m_type == "string" %}"{{value}}"{% else %}{{value}}{% endif %},
 
 {% endfor %}
 

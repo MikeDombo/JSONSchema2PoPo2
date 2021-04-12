@@ -57,11 +57,11 @@ class JsonSchema2Popo(unittest.TestCase):
         try:
             self.mypy_test()
             self.js_test()
-            # self.go_test()
+            self.go_test()
         finally:
             os.remove(self.test_file)
-            # os.remove(self.test_file_js)
-            # os.remove(self.test_file_go)
+            os.remove(self.test_file_js)
+            os.remove(self.test_file_go)
 
     def setUp(self):
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -144,15 +144,15 @@ class JsonSchema2Popo(unittest.TestCase):
         loader.process(json.loads(schema))
         loader.write_file(self.test_file_js)
         format_js_file(self.test_file_js)
-        #
-        # loader = jsonschema2popo.JsonSchema2Popo(
-        #     language="go",
-        #     package_name="generated",
-        #     **kwargs,
-        # )
-        # loader.process(json.loads(schema))
-        # loader.write_file(self.test_file_go)
-        # format_go_file(self.test_file_go)
+
+        loader = jsonschema2popo.JsonSchema2Popo(
+            language="go",
+            package_name="generated",
+            **kwargs,
+        )
+        loader.process(json.loads(schema))
+        loader.write_file(self.test_file_go)
+        format_go_file(self.test_file_go)
 
     def test_root_basic_generation(self):
         self.generate_files(
