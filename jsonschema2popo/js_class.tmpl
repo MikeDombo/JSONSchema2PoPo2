@@ -1,9 +1,9 @@
 {% macro sentence_case(text) -%}
     {{ text[0]|upper}}{{text[1:] }}
 {%- endmacro -%}
-{% macro jsdoc_type(prop) %}{% raw %}{{% endraw %}{% if not get_type(prop).startswith(get_type(prop, parent=False)) %}{% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ get_type(prop)[:get_type(prop).find(get_type(prop, parent=False))-1] }}~{{ get_type(prop) }}{% else %}{{ get_type(prop, module=True) }}{% endif %}{% if get_type(prop, parent=False, sub=False, module=True) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}{% endmacro %}
+{% macro jsdoc_typ(prop, relativeTo=None) %}{% raw %}{{% endraw %}{{ translate_type(jsdoc_type(prop.definition, relative_to=relativeTo)) }}{% if get_type(prop, sub=False, module=True) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}{% endmacro %}
 {% macro jsdoc_param(name, prop) %}
-@param {{ name }} {{ jsdoc_type(prop) }} {% if prop._comment %}{{ prop._comment | indent(7) }}{% endif %}
+@param {{ name }} {{ jsdoc_typ(prop) }} {% if prop.comment %}{{ prop.comment | indent(7) }}{% endif %}
 {% endmacro %}
 {%- macro translate_type(type, module=False) -%}
 {%- if type is none -%}
@@ -21,7 +21,7 @@ Object
 {%- elif type == "int" or type == "float" -%}
 Number
 {%- else -%}
-{% if module and namespace_path %}{{ namespace_path + "." }}{% endif %}{{ type }}
+{{ type }}
 {%- endif -%}
 {%- endmacro -%}
 
@@ -49,18 +49,17 @@ null
 {% endif %}
 {% endmacro %}
 
-{% macro get_type(prop, parent=True, sub=True, module=False) -%}{{ translate_type(parent and prop.definition.parent or
-sub and prop.definition|attr("item_type") and prop.definition.string_item_type or prop.definition.m_type or None,
-module=module)-}}{%- endmacro -%}
-{% macro type_check(prop, name=None) %}
-{% if prop.m_type and prop.m_type.type %}
-if ({{ name or prop.name }} !== null && !({{ check_type(get_type(prop, parent=prop.m_type.type.__name__ != "list", sub=False), name or prop.name) }})) {
-    throw new Error("{{prop.name}} must be {{get_type(prop, parent=prop.m_type.type.__name__ != "list", sub=False)-}}");
+{% macro get_type(prop, relativeTo=None, sub=True, module=False) -%}{{ translate_type(python_type(sub and prop.definition|attr("item_type") or prop.definition or None, relative_to=relativeTo))-}}{%-
+endmacro -%}
+{% macro type_check(prop, name=None, relativeTo=None) %}
+{% if prop.definition.m_type %}
+if ({{ name or trn(prop.name) }} !== null && !({{ check_type(get_type(prop, sub=False, relativeTo=None), name or trn(prop.name)) }})) {
+    throw new Error("{{trn(prop.name)}} must be {{get_type(prop, relativeTo=None, sub=False)-}}");
 }
 {% endif %}
-{% if prop.m_type and prop.m_type.type.__name__ == 'list' and prop.m_type.subtype %}
-if ({{ name or prop.name }} !== null && !{{ name or prop.name }}.every((v) => {{ check_type(get_type(prop), "v") }})) {
-    throw new Error("{{prop.name}} array values must be {{ get_type(prop)-}}");
+{% if prop.definition.m_type == 'list' and prop.definition.item_type %}
+if ({{ name or trn(prop.name) }} !== null && !{{ name or trn(prop.name) }}.every((v) => {{ check_type(get_type(prop, relativeTo=None), "v") }})) {
+    throw new Error("{{trn(prop.name)}} array values must be {{ get_type(prop, relativeTo=None)-}}");
 }
 {% endif %}
 {% endmacro %}
@@ -76,18 +75,18 @@ if ({{ name or prop.name }} !== null && !{{ name or prop.name }}.every((v) => {{
  */
 class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %} {
 {% for prop in model.properties %}
-    #__{{prop.name}} = null;
+    #__{{trn(prop.name)}} = null;
 {% endfor %}
 
-{% if not model.enum %}
+{% if not model.m_type == "enum" %}
     /**
 {% for prop in model.properties %}
-     * {{ jsdoc_param(prop.name, prop) }}
+     * {{ jsdoc_param(trn(prop.name), prop) }}
 {% endfor %}
      */
     constructor(
 {% for prop in model.properties %}
-            {{prop.name}}={{translate_bool(prop._default)}},
+            {{trn(prop.name)}}={{translate_bool(prop.default)}},
 {% endfor %}
 {% if model.extends %}
             ...superArgs
@@ -98,17 +97,17 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% endif %}
 {% if constructor_type_check %}
 {% for prop in model.properties %}
-        {{ type_check(prop)|indent(8) }}
+        {{ type_check(prop, relativeTo=model)|indent(8) }}
 {% endfor %}
 {% endif %}
 {% for prop in model.properties %}
-        this.#__{{prop.name}} = {{prop.name}};
+        this.#__{{trn(prop.name)}} = {{trn(prop.name)}};
 {% endfor %}
     }
 {% else %}
     #value = null;
     constructor(value=null) {
-        if (!Object.values({{ model.parent or model.name }}.options).includes(value)) {
+        if (!Object.values({{ model.full_name_python_path() }}.options).includes(value)) {
             throw new Error("Value must be one of the enumerated options");
         }
         this.#value = value;
@@ -117,44 +116,44 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 
 {% for prop in model.properties %}
     /**
-{% if prop._comment %}     * {{ prop._comment | indent(7) }}
+{% if prop.comment %}     * {{ prop.comment | indent(7) }}
 {% endif %}
-     * @returns {{ jsdoc_type(prop) }}
+     * @returns {{ jsdoc_typ(prop, relativeTo=model) }}
 
      */
-    get {{prop.name}}() {
-        return this.#__{{prop.name}};
+    get {{trn(prop.name)}}() {
+        return this.#__{{trn(prop.name)}};
     }
     /**
      * {{ jsdoc_param("value", prop) }}
      */
-    set {{prop.name}}(value) {
+    set {{trn(prop.name)}}(value) {
         {{ type_check(prop, "value")|indent(8) }}
-        this.#__{{prop.name}} = value;
+        this.#__{{trn(prop.name)}} = value;
     }
     /**
      * {{ jsdoc_param("value", prop) }}
-     * @returns {% raw %}{{% endraw %}{% if namespace_path %}{{ namespace_path + "." }}{% endif %}{% if model.parent %}{{ ".".join(model.parent.split(".")[:-1])+"~"+model.parent}}{% else %}{{ model.name }}{% endif %}{% raw %}}{% endraw %}
+     * @returns {% raw %}{{% endraw %}{% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ model.full_name_python_path() }}{% raw %}}{% endraw %}
 
      */
-    with{{sentence_case(prop.name)}}(value) {
-        this.{{prop.name}} = value;
+    with{{sentence_case(trn(prop.name))}}(value) {
+        this.{{trn(prop.name)}} = value;
         return this;
     }
 
 {% endfor %}
 
     static fromMap(d) {
-{% if model.enum %}
+{% if model.m_type == "enum" %}
         return {{ model.name }}[{{ model.name }}.optionsFlipped[d]];
 {% else %}
-        const ret = new {{ model.parent or model.name }}();
+        const ret = new {{ model.full_name_python_path() }}();
 {% for prop in model.properties %}
-        if ("{{ prop._original_name }}" in d) {
-{% if prop.m_type.type.__name__ == 'list' %}
-            ret.{{ prop.name }} = d["{{ prop._original_name }}"].reduce((acc, v) => {acc.push(Object.prototype.hasOwnProperty.call({{ get_type(prop) }}, "fromMap") ? {{ get_type(prop) }}.fromMap(v) : v); return acc;}, []);
+        if ("{{ prop.name }}" in d) {
+{% if prop.definition.m_type == 'list' %}
+            ret.{{ trn(prop.name) }} = d["{{ prop.name }}"].reduce((acc, v) => {acc.push(Object.prototype.hasOwnProperty.call({{ get_type(prop) }}, "fromMap") ? {{ get_type(prop) }}.fromMap(v) : v); return acc;}, []);
 {% else %}
-            ret.{{ prop.name }} = Object.prototype.hasOwnProperty.call({{ get_type(prop) }}, "fromMap") ? {{ get_type(prop) }}.fromMap(d["{{prop._original_name}}"]) : d["{{ prop._original_name }}"];
+            ret.{{ trn(prop.name) }} = Object.prototype.hasOwnProperty.call({{ get_type(prop) }}, "fromMap") ? {{ get_type(prop) }}.fromMap(d["{{prop.name}}"]) : d["{{ prop.name }}"];
 {% endif %}
         }
 {% endfor %}
@@ -164,7 +163,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 
 
     asMap() {
-{% if model.enum %}
+{% if model.m_type == "enum" %}
         return this.#value;
 {% else %}
 {% if model.extends %}
@@ -173,11 +172,11 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
         const d = {};
 {% endif %}
 {% for prop in model.properties %}
-        if (this.{{prop.name}} !== null) {
-{% if prop.m_type.type.__name__ == "list" %}
-            d["{{prop._original_name}}"] = this.{{prop.name}}.reduce((acc, v) => {acc.push(Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(v), "asMap") ? v.asMap() : v); return acc;}, []);
+        if (this.{{trn(prop.name)}} !== null) {
+{% if prop.definition.m_type == "list" %}
+            d["{{prop.name}}"] = this.{{trn(prop.name)}}.reduce((acc, v) => {acc.push(Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(v), "asMap") ? v.asMap() : v); return acc;}, []);
 {% else %}
-            d["{{prop._original_name}}"] = Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(this.{{prop.name}}), "asMap") ? this.{{prop.name}}.asMap() : this.{{prop.name}};
+            d["{{prop.name}}"] = Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(this.{{trn(prop.name)}}), "asMap") ? this.{{trn(prop.name)}}.asMap() : this.{{trn(prop.name)}};
 {% endif %}
         }
 {% endfor %}
@@ -185,61 +184,61 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 {% endif %}
     }
 };
-{% if model.enum %}
-Object.defineProperty({{ model.parent or model.name }}, "options", {
+{% if model.m_type == "enum" %}
+Object.defineProperty({{ model.full_name_python_path() }}, "options", {
     value: {
-{% for name, value in model.enum.items() %}
-    {{ name }}: {% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %},
+{% for name, value in model.values.items() %}
+    {{ name }}: {% if model.value_type.m_type == "string" %}"{{value}}"{% else %}{{value}}{% endif %},
 {% endfor %}
     }
 });
-Object.defineProperty({{ model.parent or model.name }}, "optionsFlipped", {
+Object.defineProperty({{ model.full_name_python_path() }}, "optionsFlipped", {
     value: {
-{% for name, value in model.enum.items() %}
-    {% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %}: "{{ name }}",
+{% for name, value in model.values.items() %}
+    {% if model.value_type.m_type == "string" %}"{{value}}"{% else %}{{value}}{% endif %}: "{{ name }}",
 {% endfor %}
     }
 });
 
-{% for name, value in model.enum.items() %}
+{% for name, value in model.values.items() %}
 /**
  * @member {% raw %}{{% endraw %}{% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ model.name }}{% raw %}}{% endraw %} {{ name }}
  * @memberOf {% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ model.name }}#
  * @readonly
  */
-Object.defineProperty({{ model.parent or model.name }}, "{{ name }}", {
-    value: new {{ model.parent or model.name }}({% if model.text_type == "string" %}"{{value}}"{% elif model.text_type == "integer" or model.text_type == "number" %}{{value}}{% endif %})
+Object.defineProperty({{ model.full_name_python_path() }}, "{{ name }}", {
+    value: new {{ model.full_name_python_path() }}({% if model.value_type.m_type == "string" %}"{{value}}"{% else %}{{value}}{% endif %})
 });
 {% endfor %}
 {% endif %}
-{% for subModel in model.subModels %}
+{% for child in model.children %}
 
-{% if model.parent %}{{ model.parent }}.{% else %}{{ model.name }}.{%endif%}{{ subModel.name }} = {{generate_class(subModel)|indent(4)}}
+{{ child.full_name_python_path() }} = {{generate_class(child)|indent(4)}}
 {% endfor %}
 {% if model.properties %}
 
-Object.defineProperty({{ model.parent or model.name }}, "typesMap", {
+Object.defineProperty({{ model.full_name_python_path() }}, "typesMap", {
     value: {
 {% for prop in model.properties %}
-{% if get_type(prop, parent=False, sub=False) == "Array" %}
-    {{prop.name}}: {'type': Array, 'subtype': {{translate_type(prop.m_type.parent or prop.m_type.subtype.__name__ or prop.m_type.subtype or None)}}},
+{% if get_type(prop, relativeTo=model, sub=False) == "Array" %}
+    {{trn(prop.name)}}: {'type': Array, 'subtype': {{get_type(prop, relativeTo=None)}}},
 {% else %}
-    {{prop.name}}: {'type': {{get_type(prop, parent=True, sub=False)}}, 'subtype': null},
+    {{trn(prop.name)}}: {'type': {{get_type(prop, relativeTo=None, sub=False)}}, 'subtype': null},
 {% endif %}
 {% endfor %}
     }
 });
-Object.defineProperty({{ model.parent or model.name }}, "formatsMap", {
+Object.defineProperty({{ model.full_name_python_path() }}, "formatsMap", {
     value: {
-{% for prop in model.properties if prop._format %}
-        {{prop.name}}: '{{prop._format}}',
+{% for prop in model.properties if prop.format %}
+        {{trn(prop.name)}}: '{{prop.format}}',
 {% endfor %}
     }
 });
-Object.defineProperty({{ model.parent or model.name }}, "validationsMap", {
+Object.defineProperty({{ model.full_name_python_path() }}, "validationsMap", {
     value: {
-{% for prop in model.properties if prop._validations %}
-        '{{ prop.name }}': { {% for type, value in prop._validations.items() %}'{{ type }}': {% if type == "pattern" %}/{{ value }}/{% else %}{{ translate_bool(value) }}{% endif %},{% endfor %}},
+{% for prop in model.properties if prop.validations %}
+        '{{ trn(prop.name) }}': { {% for type, value in prop.validations.items() %}'{{ type }}': {% if type == "pattern" %}/{{ value }}/{% else %}{{ translate_bool(value) }}{% endif %},{% endfor %}},
 {% endfor %}
     }
 });

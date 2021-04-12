@@ -56,11 +56,10 @@ class JsonSchema2Popo(unittest.TestCase):
     def tearDown(self):
         try:
             self.mypy_test()
-            # self.js_test()
+            self.js_test()
             # self.go_test()
         finally:
-            pass
-            # os.remove(self.test_file)
+            os.remove(self.test_file)
             # os.remove(self.test_file_js)
             # os.remove(self.test_file_go)
 
@@ -134,17 +133,17 @@ class JsonSchema2Popo(unittest.TestCase):
         loader.process(json.loads(schema))
         loader.write_file(self.test_file)
         format_python_file(self.test_file)
-        #
-        # loader = jsonschema2popo.JsonSchema2Popo(
-        #     use_types=True,
-        #     constructor_type_check=True,
-        #     use_slots=True,
-        #     language="js",
-        #     **kwargs,
-        # )
-        # loader.process(json.loads(schema))
-        # loader.write_file(self.test_file_js)
-        # format_js_file(self.test_file_js)
+
+        loader = jsonschema2popo.JsonSchema2Popo(
+            use_types=True,
+            constructor_type_check=True,
+            use_slots=True,
+            language="js",
+            **kwargs,
+        )
+        loader.process(json.loads(schema))
+        loader.write_file(self.test_file_js)
+        format_js_file(self.test_file_js)
         #
         # loader = jsonschema2popo.JsonSchema2Popo(
         #     language="go",

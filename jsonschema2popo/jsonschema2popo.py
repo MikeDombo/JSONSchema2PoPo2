@@ -113,6 +113,7 @@ class JsonSchema2Popo:
             find, replace, s
         )
         self.jinja.globals["python_type"] = python_type
+        self.jinja.globals["jsdoc_type"] = self.jsdoc_type
         self.jinja.globals["trn"] = self.get_prop_name
         self.jinja.filters["trn"] = self.get_prop_name
         self.use_types = use_types
@@ -426,6 +427,19 @@ class JsonSchema2Popo:
             return name
         s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
         return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+
+    def jsdoc_type(
+        self, v: Union[Definition, str], relative_to: Definition = None
+    ) -> str:
+        if isinstance(v, Definition):
+            if isinstance(v, ListType):
+                return self.jsdoc_type(v.m_type)
+            elif v.is_primitive:
+                return self.jsdoc_type(v.string_type)
+            else:
+                return self.jsdoc_type(v.full_name_python_path(relative_to=relative_to))
+        else:
+            return string_to_type(v)
 
 
 def init_parser():
