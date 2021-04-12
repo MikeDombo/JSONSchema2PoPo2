@@ -59,9 +59,10 @@ class JsonSchema2Popo(unittest.TestCase):
             # self.js_test()
             # self.go_test()
         finally:
+            pass
             # os.remove(self.test_file)
-            os.remove(self.test_file_js)
-            os.remove(self.test_file_go)
+            # os.remove(self.test_file_js)
+            # os.remove(self.test_file_go)
 
     def setUp(self):
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -358,6 +359,7 @@ class JsonSchema2Popo(unittest.TestCase):
         foo.ABcd(Child1=0, Child2="2")
         foo.SubRef(ChildA=foo.ABcd())
         foo.DirectRef(Child1=0, Child2="2")
+        assert isinstance(foo.DirectRef.from_dict({}), foo.DirectRef)
 
     def test_definitions_with_nested_refs(self):
         self.generate_files(

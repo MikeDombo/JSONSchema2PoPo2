@@ -5,7 +5,8 @@ import argparse
 import json
 import re
 import pathlib
-from typing import List, Optional, Dict, Union
+from collections import defaultdict
+from typing import List, Optional, Dict, Union, Set
 
 import networkx
 from jinja2 import Environment, FileSystemLoader
@@ -45,16 +46,14 @@ def string_to_type(t: str) -> str:
     return J2P_TYPES[t].__name__ if t in J2P_TYPES else t
 
 
-def python_type(v: Union[Definition, str], parent: bool = True) -> str:
+def python_type(v: Union[Definition, str], relative_to: Definition = None) -> str:
     if isinstance(v, Definition):
         if isinstance(v, ListType):
             return python_type(v.m_type)
         elif v.is_primitive:
             return python_type(v.string_type)
-        elif parent or isinstance(v, ReferenceType):
-            return python_type(v.full_name_python_path)
         else:
-            return python_type(v.python_type_name)
+            return python_type(v.full_name_python_path(relative_to=relative_to))
     else:
         return string_to_type(v)
 
@@ -126,6 +125,7 @@ class JsonSchema2Popo:
         self.custom_template = custom_template
 
         self.definitions: List[Definition] = []
+        self.searching_for_references: Dict[str, Set[ReferenceType]] = defaultdict(set)
 
     def load(self, json_schema_file):
         self.process(json.load(json_schema_file))
@@ -135,12 +135,21 @@ class JsonSchema2Popo:
         if isinstance(model, ObjectType):
             for prop in model.properties:
                 if not prop.definition.is_primitive:
-                    deps.add(prop.definition.full_name_path)
+                    deps.update(self.get_model_dependencies(prop.definition))
+                    for a in prop.definition.ancestors():
+                        deps.add(a.full_name_path)
                 if (
                     isinstance(prop.definition, ListType)
                     and not prop.definition.item_type.is_primitive
                 ):
-                    deps.add(prop.definition.item_type.full_name_path)
+                    deps.update(self.get_model_dependencies(prop.definition.item_type))
+        elif isinstance(model, ListType) and not model.item_type.is_primitive:
+            deps.update(self.get_model_dependencies(model.item_type))
+        if isinstance(model, ReferenceType) and model.parent is not None:
+            deps.add(model.full_name_path)
+        else:
+            deps.discard(model.full_name_path)
+
         return list(deps)
 
     def process(self, json_schema):
@@ -182,6 +191,13 @@ class JsonSchema2Popo:
             self.definitions.append(root_model)
 
     def attach_extra_bits(self, _obj, model: Definition):
+        if "$ref" in _obj:
+            self.attach_ref_value(_obj["$ref"], model)
+        if model.full_name_path in self.searching_for_references:
+            for m in self.searching_for_references[model.full_name_path]:
+                m.value = model
+            del self.searching_for_references[model.full_name_path]
+
         if "description" in _obj:
             model.comment = _obj["description"]
 
@@ -192,6 +208,14 @@ class JsonSchema2Popo:
             and model.parent is not None
         ):
             model.parent.children.add(model)
+
+    def attach_ref_value(self, ref: str, model: Definition):
+        if isinstance(model, ReferenceType) and model.value is None:
+            # Only supporting "#/definitions/"
+            ref_path = ref.split("/")[2:]
+            ref = ".".join(ref_path)
+            # Add to search list so that it is filled in at a later time
+            self.searching_for_references[ref].add(model)
 
     def ref_lookup(self, ref) -> Optional[Definition]:
         if not ref.startswith("#/definitions/"):
@@ -222,21 +246,11 @@ class JsonSchema2Popo:
     def definition_parser(
         self, _obj_name, _obj, parent: Definition = None
     ) -> Optional[Definition]:
-        model: Definition
+        model: Optional[Definition] = None
 
         if "$ref" in _obj:
             ref = self.ref_lookup(_obj["$ref"])
-            if ref is None:
-                logger.error(
-                    "Unable to find reference for %s $ref=%s",
-                    _obj_name,
-                    _obj["$ref"],
-                )
-                return None
-
             model = ReferenceType(parent=parent, name=_obj_name, value=ref)
-            self.attach_extra_bits(_obj, model)
-            return model
 
         if "enum" in _obj:
             enum = {}
@@ -246,14 +260,12 @@ class JsonSchema2Popo:
             model.value_type = self.type_parser(_obj, name=_obj_name)
             model.value_type.parent = model
             self.enum_used = True
-            self.attach_extra_bits(_obj, model)
-            return model
 
         if "type" in _obj:
-            model = self.type_parser(_obj, name=_obj_name, parent=parent)
+            if model is None:
+                model = self.type_parser(_obj, name=_obj_name, parent=parent)
         else:
-            logger.error("No type in %s", _obj_name)
-            return None
+            return model
 
         if "extends" in _obj and "$ref" in _obj["extends"]:
             if _obj["extends"]["$ref"].endswith(".json"):
@@ -351,6 +363,7 @@ class JsonSchema2Popo:
                         model.item_type = ReferenceType(
                             value=self.ref_lookup(ref), name=name, parent=parent
                         )
+                        self.attach_ref_value(ref, model.item_type)
                 elif isinstance(t["items"], dict):
                     if "type" in t["items"]:
                         model.item_type = self.definition_parser(
@@ -368,6 +381,7 @@ class JsonSchema2Popo:
                         model.item_type = ReferenceType(
                             value=self.ref_lookup(ref), name=name, parent=parent
                         )
+                        self.attach_ref_value(ref, model.item_type)
             elif isinstance(t["type"], list):
                 model = self.J2P_TYPES[t["type"][0]].__class__(name=name, parent=parent)
             elif t["type"]:

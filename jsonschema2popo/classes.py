@@ -22,26 +22,51 @@ class Definition:
 
     @property
     def names(self):
-        names = [self.name]
+        return list(map(lambda a: a.name, self.ancestors()))
+
+    def ancestors(self, stop: "Definition" = None):
+        ancestors = [self]
         p = self.parent
-        while p is not None:
-            names.append(p.name)
+        while p is not None and p != stop:
+            ancestors.append(p)
             p = p.parent
-        return reversed(names)
+        return list(reversed(ancestors))
 
     @property
     def full_name_path(self):
         return ".".join(self.names)
 
-    @property
-    def full_name_python_path(self):
-        return "._".join(self.names)
+    def full_name_python_path(self, relative_to: "Definition" = None):
+        l = list(
+            map(
+                lambda a: a.name,
+                self.ancestors(
+                    stop=Definition.lowest_common_ancestor(self, relative_to)
+                ),
+            )
+        )
+        if len(l) == 1 and self.parent is not None:
+            return "_" + self.name
+        return "._".join(l)
 
     @property
     def python_type_name(self):
         if self.parent is not None:
             return "_" + self.name
         return self.name
+
+    @staticmethod
+    def lowest_common_ancestor(a: "Definition", b: "Definition") -> "Definition":
+        if b is None:
+            return a
+        path1 = a.ancestors()
+        path2 = b.ancestors()
+        i = 0
+        while i < len(path1) and i < len(path2):
+            if path1[i] != path2[i]:
+                break
+            i += 1
+        return path1[i - 1]
 
 
 class ListType(Definition):
@@ -191,7 +216,13 @@ class ReferenceType(Definition):
     def __value_setter(self, v: Definition):
         self.__value = v
         for k in v.__dir__():
-            if k.startswith("__") or k == "parent" or k == "name":
+            if (
+                k.startswith("__")
+                or k == "parent"
+                or k == "name"
+                or k == "comment"
+                or k == "full_name_python_path"
+            ):
                 continue
             if isinstance(v.__getattribute__(k), property):
                 continue
@@ -213,11 +244,10 @@ class ReferenceType(Definition):
             return self.name
         return self.value.full_name_path
 
-    @property
-    def full_name_python_path(self):
+    def full_name_python_path(self, relative_to: Definition = None):
         if isinstance(self.value, ObjectType) and self.parent is None:
             return self.name
-        return self.value.full_name_python_path
+        return self.value.full_name_python_path(relative_to=relative_to)
 
     @property
     def python_type_name(self):
