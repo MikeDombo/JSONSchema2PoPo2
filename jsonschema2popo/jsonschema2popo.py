@@ -288,8 +288,6 @@ class JsonSchema2Popo:
 
                 if "default" in _prop:
                     property.default = _prop["default"]
-                    if isinstance(property.definition, StringType):
-                        property.default = "'{}'".format(property.default)
 
                 if "description" in _prop:
                     property.comment = _prop["description"]
@@ -364,6 +362,8 @@ class JsonSchema2Popo:
                             value=self.ref_lookup(ref), name=name, parent=parent
                         )
                         self.attach_ref_value(ref, model.item_type)
+                    if "format" in t["items"][0]:
+                        model.item_format = t["items"][0]["format"]
                 elif isinstance(t["items"], dict):
                     if "type" in t["items"]:
                         model.item_type = self.definition_parser(
@@ -382,6 +382,8 @@ class JsonSchema2Popo:
                             value=self.ref_lookup(ref), name=name, parent=parent
                         )
                         self.attach_ref_value(ref, model.item_type)
+                    if "format" in t["items"]:
+                        model.item_format = t["items"]["format"]
             elif isinstance(t["type"], list):
                 model = self.J2P_TYPES[t["type"][0]].__class__(name=name, parent=parent)
             elif t["type"]:
@@ -392,7 +394,7 @@ class JsonSchema2Popo:
                     and "binaryEncoding" in t["media"]
                     and t["media"]["binaryEncoding"] == "base64"
                 ):
-                    model.most_specific_type = bytes
+                    model.specific_type = bytes
         elif "$ref" in t:
             model = ReferenceType(
                 value=self.ref_lookup(t["$ref"]), name=name, parent=parent

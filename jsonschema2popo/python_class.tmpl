@@ -67,7 +67,7 @@ class {{model.python_type_name}}{% if model.m_type == "enum" %}(enum.Enum){% end
             , *args
 {% endif %}
 {% for prop in model.properties %}
-            , {{prop.name}}{% if use_types %}: {{ get_typing(prop, relativeTo=model) }}{% endif %}={{prop.default}}
+            , {{prop.name}}{% if use_types %}: {{ get_typing(prop, relativeTo=model) }}{% endif %}={% if prop.definition.string_type == "string" %}'{{prop.default}}'{% else %}{{prop.default}}{% endif %}
 {% endfor %}
 {% if model.extends %}
             , **kwargs

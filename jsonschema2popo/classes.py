@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Set
+from typing import Dict, Any, List, Set, Optional
 
 
 class Definition:
@@ -8,7 +8,6 @@ class Definition:
     extends: "Definition"
     children: Set["Definition"]
     comment: str
-    most_specific_type: type
     is_primitive: bool = True
 
     def __init__(self):
@@ -16,8 +15,6 @@ class Definition:
 
     @property
     def string_type(self):
-        if hasattr(self, "most_specific_type"):
-            return self.most_specific_type.__name__
         return self.m_type
 
     @property
@@ -71,7 +68,7 @@ class Definition:
 
 class ListType(Definition):
     item_type: Definition
-    item_format: dict
+    item_format: Optional[str]
     m_type = "list"
 
     def __init__(
@@ -81,6 +78,7 @@ class ListType(Definition):
         self.item_type = item_type
         self.parent = parent
         self.name = name
+        self.item_format = None
 
     @property
     def string_item_type(self):
@@ -141,11 +139,17 @@ class ObjectType(Definition):
 
 class StringType(Definition):
     m_type = "string"
+    specific_type: Optional[type]
 
     def __init__(self, parent: Definition = None, name: str = None):
         super().__init__()
         self.parent = parent
         self.name = name
+        self.specific_type = None
+
+    @property
+    def string_type(self):
+        return self.specific_type and self.specific_type.__name__ or self.m_type
 
 
 class EnumType(Definition):
