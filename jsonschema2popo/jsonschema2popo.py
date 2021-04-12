@@ -429,7 +429,7 @@ class JsonSchema2Popo:
         return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
     def jsdoc_type(
-        self, v: Union[Definition, str], relative_to: Definition = None, was_ref = False
+        self, v: Union[Definition, str], relative_to: Definition = None, was_ref=False
     ) -> str:
         if isinstance(v, Definition):
             if isinstance(v, ListType):

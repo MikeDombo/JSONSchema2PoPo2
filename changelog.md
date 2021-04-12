@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.0.0-alpha0
+
+- Rewrote internal data models to be strongly typed for easier development of templates and supporting future 
+  enhancements
+  
+### BREAKING CHANGES
+
+The format of data provided to templates has changed rather significantly, though I hope this is an improvement.
+See `classes.py` for the models which are provided and what their fields are.
+
 ## 2.2.3
 
 - Fix for #8 with #9. Enum generation now works in the root object
