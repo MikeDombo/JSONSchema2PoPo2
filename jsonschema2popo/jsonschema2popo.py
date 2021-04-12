@@ -113,6 +113,8 @@ class JsonSchema2Popo:
             find, replace, s
         )
         self.jinja.globals["python_type"] = python_type
+        self.jinja.globals["trn"] = self.get_prop_name
+        self.jinja.filters["trn"] = self.get_prop_name
         self.use_types = use_types
         self.use_slots = use_slots
         self.constructor_type_check = constructor_type_check
@@ -424,11 +426,6 @@ class JsonSchema2Popo:
             return name
         s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
         return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
-
-    def strip_sub_prefix(self, name):
-        if self.translate_properties:
-            return name
-        return name.lstrip("_")
 
 
 def init_parser():
