@@ -1,7 +1,9 @@
 {% macro sentence_case(text) -%}
     {{ text[0]|upper}}{{text[1:] }}
 {%- endmacro -%}
-{% macro jsdoc_typ(prop, relativeTo=None) %}{% raw %}{{% endraw %}{{ translate_type(jsdoc_type(prop.definition, relative_to=relativeTo)) }}{% if get_type(prop, sub=False, module=True) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}{% endmacro %}
+{% macro jsdoc_typ(prop, relativeTo=None) %}{% raw %}{{% endraw %}{{ translate_type(jsdoc_type(prop.definition.item_type
+ or prop.definition, relative_to=relativeTo)) }}{% if get_type(prop, sub=False, module=True) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
+{%- endmacro -%}
 {% macro jsdoc_param(name, prop) %}
 @param {{ name }} {{ jsdoc_typ(prop) }} {% if prop.comment %}{{ prop.comment | indent(7) }}{% endif %}
 {% endmacro %}
@@ -73,7 +75,7 @@ if ({{ name or trn(prop.name) }} !== null && !{{ name or trn(prop.name) }}.every
 {% if namespace_path %} * @memberOf {{ namespace_path }}{% endif %}
 
  */
-class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %} {
+class {{model.python_type_name}}{% if model.extends %} extends {{ model.extends }}{% endif %} {
 {% for prop in model.properties %}
     #__{{trn(prop.name)}} = null;
 {% endfor %}
@@ -118,7 +120,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
     /**
 {% if prop.comment %}     * {{ prop.comment | indent(7) }}
 {% endif %}
-     * @returns {{ jsdoc_typ(prop, relativeTo=model) }}
+     * @returns {{ jsdoc_typ(prop, relativeTo=None) }}
 
      */
     get {{trn(prop.name)}}() {
@@ -133,7 +135,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
     }
     /**
      * {{ jsdoc_param("value", prop) }}
-     * @returns {% raw %}{{% endraw %}{% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ model.full_name_python_path() }}{% raw %}}{% endraw %}
+     * @returns {% raw %}{{% endraw %}{{translate_type(jsdoc_type(model, relative_to=model))}}{% raw %}}{% endraw %}
 
      */
     with{{sentence_case(trn(prop.name))}}(value) {
@@ -145,7 +147,7 @@ class {{model.name}}{% if model.extends %} extends {{ model.extends }}{% endif %
 
     static fromMap(d) {
 {% if model.m_type == "enum" %}
-        return {{ model.name }}[{{ model.name }}.optionsFlipped[d]];
+        return {{ model.python_type_name }}[{{ model.python_type_name }}.optionsFlipped[d]];
 {% else %}
         const ret = new {{ model.full_name_python_path() }}();
 {% for prop in model.properties %}
@@ -202,8 +204,8 @@ Object.defineProperty({{ model.full_name_python_path() }}, "optionsFlipped", {
 
 {% for name, value in model.values.items() %}
 /**
- * @member {% raw %}{{% endraw %}{% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ model.name }}{% raw %}}{% endraw %} {{ name }}
- * @memberOf {% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ model.name }}#
+ * @member {% raw %}{{% endraw %}{% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ model.python_type_name }}{% raw %}}{% endraw %} {{ name }}
+ * @memberOf {% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ model.python_type_name }}#
  * @readonly
  */
 Object.defineProperty({{ model.full_name_python_path() }}, "{{ name }}", {

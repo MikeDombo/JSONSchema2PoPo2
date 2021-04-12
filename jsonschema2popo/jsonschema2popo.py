@@ -429,15 +429,21 @@ class JsonSchema2Popo:
         return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
     def jsdoc_type(
-        self, v: Union[Definition, str], relative_to: Definition = None
+        self, v: Union[Definition, str], relative_to: Definition = None, was_ref = False
     ) -> str:
         if isinstance(v, Definition):
             if isinstance(v, ListType):
                 return self.jsdoc_type(v.m_type)
             elif v.is_primitive:
                 return self.jsdoc_type(v.string_type)
+            elif isinstance(v, ReferenceType) and v.parent is not None:
+                return self.jsdoc_type(v.value, relative_to=v.value, was_ref=True)
             else:
-                return self.jsdoc_type(v.full_name_python_path(relative_to=relative_to))
+                return (
+                    (v.parent.full_name_python_path(relative_to=v) + "~")
+                    if v.parent and not was_ref
+                    else ""
+                ) + v.full_name_python_path(relative_to=None)
         else:
             return string_to_type(v)
 
