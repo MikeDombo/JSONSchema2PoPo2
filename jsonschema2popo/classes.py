@@ -1,4 +1,6 @@
-from typing import Dict, Any, List, Set, Optional
+import abc
+import argparse
+from typing import Dict, Any, List, Set, Optional, Callable, Type
 
 extra_generation_options = dict()
 
@@ -269,3 +271,39 @@ class ReferenceNode(Definition):
         if isinstance(self.value, ObjectNode) and self.parent is None:
             return self.name
         return self.value.python_type_name
+
+
+class CodeGenPlugin(abc.ABC):
+    @abc.abstractmethod
+    def plugin_name(self) -> str:
+        pass
+
+    @abc.abstractmethod
+    def plugin_version(self) -> str:
+        pass
+
+    @abc.abstractmethod
+    def template_search_path(self) -> str:
+        pass
+
+    @abc.abstractmethod
+    def template(self) -> str:
+        pass
+
+    def jinja_globals(self) -> Dict[str, Callable]:
+        pass
+
+    def command_line_parser(self, sub_parser: argparse.ArgumentParser) -> None:
+        pass
+
+    def set_args(self, args: argparse.Namespace) -> None:
+        pass
+
+    def after_processing(self, definitions: List[Definition]):
+        pass
+
+    def extra_jinja_inputs(self) -> Dict[str, Any]:
+        return {}
+
+    def after_generation(self, filename: Optional[str] = None) -> None:
+        pass

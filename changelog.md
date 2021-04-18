@@ -5,6 +5,9 @@
 - Rewrote internal data models to be strongly typed for easier development of templates and supporting future 
   enhancements
   
+## TODO
+JS module path in jsdoc
+  
 ### BREAKING CHANGES
 
 The format of data provided to templates has changed rather significantly, though I hope this is an improvement.
