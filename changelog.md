@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.0.0-alpha0
+## 3.0.0.a0
 
 - Rewrote internal data models to be strongly typed for easier development of templates and supporting future 
   enhancements

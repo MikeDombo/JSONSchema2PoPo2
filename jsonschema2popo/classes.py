@@ -1,9 +1,15 @@
 from typing import Dict, Any, List, Set, Optional
 
+extra_generation_options = dict()
+
+
+def translate_properties():
+    return extra_generation_options.get("translate_properties", False)
+
 
 class Definition:
     name: str
-    m_type: str
+    type: str
     parent: "Definition"
     extends: "Definition"
     children: Set["Definition"]
@@ -15,7 +21,7 @@ class Definition:
 
     @property
     def string_type(self):
-        return self.m_type
+        return self.type
 
     @property
     def names(self):
@@ -36,19 +42,21 @@ class Definition:
     def full_name_python_path(self, relative_to: "Definition" = None):
         l = list(
             map(
-                lambda a: a.name,
+                lambda a: a.python_type_name,
                 self.ancestors(
                     stop=Definition.lowest_common_ancestor(self, relative_to)
                 ),
             )
         )
-        if len(l) == 1 and self.parent is not None:
-            return "_" + self.name
-        return "._".join(l)
+        return ".".join(l)
 
     @property
     def python_type_name(self):
-        if self.parent is not None:
+        # When this is a subtype and we're not translating properties then we do not prefix the type with an underscore
+        # because the subtype's name shouldn't be conflicting with the property of the parent class
+        # since we've translated the name. There is some possibility of conflicts when the property name is a single
+        # word, in which case this would output broken code. Keeping it this way for compatibility with 2.x.x.
+        if self.parent is not None and not translate_properties():
             return "_" + self.name
         return self.name
 
@@ -66,10 +74,10 @@ class Definition:
         return path1[i - 1]
 
 
-class ListType(Definition):
+class ListNode(Definition):
     item_type: Definition
     item_format: Optional[str]
-    m_type = "list"
+    type = "list"
 
     def __init__(
         self, item_type: Definition = None, parent: Definition = None, name: str = None
@@ -89,7 +97,7 @@ class ListType(Definition):
         return self.item_type.is_primitive
 
 
-class Properties:
+class Property:
     name: str
     definition: Definition
     default: Any
@@ -110,9 +118,9 @@ class Properties:
         self.comment = comment
 
 
-class ObjectType(Definition):
-    m_type = "object"
-    properties: List[Properties]
+class ObjectNode(Definition):
+    type = "object"
+    properties: List[Property]
     properties_have_comments: bool
 
     def __init__(self, properties=None, parent: Definition = None, name: str = None):
@@ -133,12 +141,12 @@ class ObjectType(Definition):
     @property
     def string_type(self):
         if self.is_primitive:
-            return self.m_type
+            return self.type
         return self.full_name_path
 
 
-class StringType(Definition):
-    m_type = "string"
+class StringNode(Definition):
+    type = "string"
     specific_type: Optional[type]
 
     def __init__(self, parent: Definition = None, name: str = None):
@@ -149,11 +157,11 @@ class StringType(Definition):
 
     @property
     def string_type(self):
-        return self.specific_type and self.specific_type.__name__ or self.m_type
+        return self.specific_type and self.specific_type.__name__ or self.type
 
 
-class EnumType(Definition):
-    m_type = "enum"
+class EnumNode(Definition):
+    type = "enum"
     value_type: Definition
     values: Dict[str, str]
     is_primitive = False
@@ -167,8 +175,8 @@ class EnumType(Definition):
         self.values = values
 
 
-class NumericType(Definition):
-    m_type = "number"
+class NumericNode(Definition):
+    type = "number"
 
     def __init__(self, parent: Definition = None, name: str = None):
         super().__init__()
@@ -176,8 +184,8 @@ class NumericType(Definition):
         self.name = name
 
 
-class IntegerType(Definition):
-    m_type = "integer"
+class IntegerNode(Definition):
+    type = "integer"
 
     def __init__(self, parent: Definition = None, name: str = None):
         super().__init__()
@@ -185,8 +193,8 @@ class IntegerType(Definition):
         self.name = name
 
 
-class BooleanType(Definition):
-    m_type = "boolean"
+class BooleanNode(Definition):
+    type = "boolean"
 
     def __init__(self, parent: Definition = None, name: str = None):
         super().__init__()
@@ -194,8 +202,8 @@ class BooleanType(Definition):
         self.name = name
 
 
-class NullType(Definition):
-    m_type = "null"
+class NullNode(Definition):
+    type = "null"
 
     def __init__(self, parent: Definition = None, name: str = None):
         super().__init__()
@@ -203,7 +211,7 @@ class NullType(Definition):
         self.name = name
 
 
-class ReferenceType(Definition):
+class ReferenceNode(Definition):
     value: Definition
 
     def __init__(
@@ -218,6 +226,10 @@ class ReferenceType(Definition):
         return self.__value
 
     def __value_setter(self, v: Definition):
+        # Automatically copy all properties from the referenced value into this type
+        # so that users can just do x.y instead of x.value.y; this way the fact that this
+        # is a reference shouldn't matter to any users.
+        # Copy most, but not quite all values.
         self.__value = v
         for k in v.__dir__():
             if (
@@ -230,11 +242,10 @@ class ReferenceType(Definition):
                 continue
             if isinstance(v.__getattribute__(k), property):
                 continue
-            print(k, v.__getattribute__(k).__class__)
             try:
                 self.__setattr__(k, v.__getattribute__(k))
-            except AttributeError as e:
-                print(k, e)
+            except AttributeError:
+                pass
 
     value = property(__value_getter, __value_setter)
 
@@ -244,17 +255,17 @@ class ReferenceType(Definition):
 
     @property
     def full_name_path(self):
-        if isinstance(self.value, ObjectType) and self.parent is None:
+        if isinstance(self.value, ObjectNode) and self.parent is None:
             return self.name
         return self.value.full_name_path
 
     def full_name_python_path(self, relative_to: Definition = None):
-        if isinstance(self.value, ObjectType) and self.parent is None:
+        if isinstance(self.value, ObjectNode) and self.parent is None:
             return self.name
         return self.value.full_name_python_path(relative_to=relative_to)
 
     @property
     def python_type_name(self):
-        if isinstance(self.value, ObjectType) and self.parent is None:
+        if isinstance(self.value, ObjectNode) and self.parent is None:
             return self.name
         return self.value.python_type_name

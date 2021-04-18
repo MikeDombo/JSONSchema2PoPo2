@@ -13,16 +13,17 @@ from jinja2 import Environment, FileSystemLoader
 
 from jsonschema2popo.classes import (
     Definition,
-    ReferenceType,
-    EnumType,
-    ListType,
-    StringType,
-    IntegerType,
-    NumericType,
-    ObjectType,
-    BooleanType,
-    NullType,
-    Properties,
+    ReferenceNode,
+    EnumNode,
+    ListNode,
+    StringNode,
+    IntegerNode,
+    NumericNode,
+    ObjectNode,
+    BooleanNode,
+    NullNode,
+    Property,
+    extra_generation_options,
 )
 from . import __version__
 
@@ -48,8 +49,8 @@ def string_to_type(t: str) -> str:
 
 def python_type(v: Union[Definition, str], relative_to: Definition = None) -> str:
     if isinstance(v, Definition):
-        if isinstance(v, ListType):
-            return python_type(v.m_type)
+        if isinstance(v, ListNode):
+            return python_type(v.type)
         elif v.is_primitive:
             return python_type(v.string_type)
         else:
@@ -72,13 +73,13 @@ class JsonSchema2Popo:
     }
 
     J2P_TYPES = {
-        "string": StringType(),
-        "integer": IntegerType(),
-        "number": NumericType(),
-        "object": ObjectType(),
-        "array": ListType(),
-        "boolean": BooleanType(),
-        "null": NullType(),
+        "string": StringNode(),
+        "integer": IntegerNode(),
+        "number": NumericNode(),
+        "object": ObjectNode(),
+        "array": ListNode(),
+        "boolean": BooleanNode(),
+        "null": NullNode(),
     }
 
     @staticmethod
@@ -128,27 +129,29 @@ class JsonSchema2Popo:
         self.custom_template = custom_template
 
         self.definitions: List[Definition] = []
-        self.searching_for_references: Dict[str, Set[ReferenceType]] = defaultdict(set)
+        self.searching_for_references: Dict[str, Set[ReferenceNode]] = defaultdict(set)
+
+        extra_generation_options["translate_properties"] = self.translate_properties
 
     def load(self, json_schema_file):
         self.process(json.load(json_schema_file))
 
     def get_model_dependencies(self, model: Definition) -> List[str]:
         deps = set()
-        if isinstance(model, ObjectType):
+        if isinstance(model, ObjectNode):
             for prop in model.properties:
                 if not prop.definition.is_primitive:
                     deps.update(self.get_model_dependencies(prop.definition))
                     for a in prop.definition.ancestors():
                         deps.add(a.full_name_path)
                 if (
-                    isinstance(prop.definition, ListType)
+                    isinstance(prop.definition, ListNode)
                     and not prop.definition.item_type.is_primitive
                 ):
                     deps.update(self.get_model_dependencies(prop.definition.item_type))
-        elif isinstance(model, ListType) and not model.item_type.is_primitive:
+        elif isinstance(model, ListNode) and not model.item_type.is_primitive:
             deps.update(self.get_model_dependencies(model.item_type))
-        if isinstance(model, ReferenceType) and model.parent is not None:
+        if isinstance(model, ReferenceNode) and model.parent is not None:
             deps.add(model.full_name_path)
         else:
             deps.discard(model.full_name_path)
@@ -190,7 +193,7 @@ class JsonSchema2Popo:
         if self.generate_root:
             root_model = self.definition_parser(root_object_name, json_schema)
             if root_model is None:
-                root_model = ObjectType(name=root_object_name)
+                root_model = ObjectNode(name=root_object_name)
             self.definitions.append(root_model)
 
     def attach_extra_bits(self, _obj, model: Definition):
@@ -206,14 +209,14 @@ class JsonSchema2Popo:
 
         if (
             not model.is_primitive
-            and not isinstance(model, ReferenceType)
-            and not isinstance(model, ListType)
+            and not isinstance(model, ReferenceNode)
+            and not isinstance(model, ListNode)
             and model.parent is not None
         ):
             model.parent.children.add(model)
 
     def attach_ref_value(self, ref: str, model: Definition):
-        if isinstance(model, ReferenceType) and model.value is None:
+        if isinstance(model, ReferenceNode) and model.value is None:
             # Only supporting "#/definitions/"
             ref_path = ref.split("/")[2:]
             ref = ".".join(ref_path)
@@ -253,13 +256,13 @@ class JsonSchema2Popo:
 
         if "$ref" in _obj:
             ref = self.ref_lookup(_obj["$ref"])
-            model = ReferenceType(parent=parent, name=_obj_name, value=ref)
+            model = ReferenceNode(parent=parent, name=_obj_name, value=ref)
 
         if "enum" in _obj:
             enum = {}
             for i, v in enumerate(_obj["enum"]):
                 enum[v if "javaEnumNames" not in _obj else _obj["javaEnumNames"][i]] = v
-            model = EnumType(parent=parent, name=_obj_name, values=enum)
+            model = EnumNode(parent=parent, name=_obj_name, values=enum)
             model.value_type = self.type_parser(_obj, name=_obj_name)
             model.value_type.parent = model
             self.enum_used = True
@@ -279,10 +282,10 @@ class JsonSchema2Popo:
             else:
                 model.extends = self.ref_lookup(_obj["extends"]["$ref"])
 
-        properties: List[Properties] = []
+        properties: List[Property] = []
         if "properties" in _obj:
             for _prop_name, _prop in _obj["properties"].items():
-                property = Properties(
+                property = Property(
                     name=_prop_name,
                     definition=self.definition_parser(_prop_name, _prop, parent=model),
                 )
@@ -296,9 +299,9 @@ class JsonSchema2Popo:
                     property.comment = _prop["description"]
 
                 if (
-                    isinstance(property.definition, ListType)
+                    isinstance(property.definition, ListNode)
                     and not property.definition.item_type.is_primitive
-                    and not isinstance(property.definition.item_type, ReferenceType)
+                    and not isinstance(property.definition.item_type, ReferenceNode)
                 ):
                     self.definition_parser(
                         _prop_name, _prop["items"], parent=property.definition
@@ -308,7 +311,7 @@ class JsonSchema2Popo:
                 if "format" in _prop:
                     property.format = _prop["format"]
                 if (
-                    isinstance(property.definition, ListType)
+                    isinstance(property.definition, ListNode)
                     and "items" in _prop
                     and isinstance(_prop["items"], list)
                 ):
@@ -327,7 +330,7 @@ class JsonSchema2Popo:
                 for t in validation_types:
                     if t in _prop:
                         _validations[t] = _prop[t]
-                    if isinstance(property.definition, ListType) and "items" in _prop:
+                    if isinstance(property.definition, ListNode) and "items" in _prop:
                         array_validation = _prop["items"]
                         if t in array_validation:
                             _validations[t] = array_validation[t]
@@ -335,7 +338,7 @@ class JsonSchema2Popo:
                     _validations["required"] = True
                 property.validations = _validations
 
-        if isinstance(model, ObjectType):
+        if isinstance(model, ObjectNode):
             model.properties = properties
             model.properties_have_comments = any(p.comment for p in model.properties)
         self.attach_extra_bits(_obj, model)
@@ -346,7 +349,7 @@ class JsonSchema2Popo:
         if "type" in t:
             if t["type"] == "array" and "items" in t:
                 self.list_used = True
-                model = ListType(name=name, parent=parent)
+                model = ListNode(name=name, parent=parent)
                 if isinstance(t["items"], list):
                     if "type" in t["items"][0]:
                         model.item_type = self.definition_parser(
@@ -361,7 +364,7 @@ class JsonSchema2Popo:
                             ref = t["items"][0]["$ref"]
                         else:
                             ref = t["items"][0]["oneOf"][0]["$ref"]
-                        model.item_type = ReferenceType(
+                        model.item_type = ReferenceNode(
                             value=self.ref_lookup(ref), name=name, parent=parent
                         )
                         self.attach_ref_value(ref, model.item_type)
@@ -381,7 +384,7 @@ class JsonSchema2Popo:
                             ref = t["items"]["$ref"]
                         else:
                             ref = t["items"]["oneOf"][0]["$ref"]
-                        model.item_type = ReferenceType(
+                        model.item_type = ReferenceNode(
                             value=self.ref_lookup(ref), name=name, parent=parent
                         )
                         self.attach_ref_value(ref, model.item_type)
@@ -392,18 +395,18 @@ class JsonSchema2Popo:
             elif t["type"]:
                 model = self.J2P_TYPES[t["type"]].__class__(name=name, parent=parent)
                 if (
-                    isinstance(model, StringType)
+                    isinstance(model, StringNode)
                     and "media" in t
                     and "binaryEncoding" in t["media"]
                     and t["media"]["binaryEncoding"] == "base64"
                 ):
                     model.specific_type = bytes
         elif "$ref" in t:
-            model = ReferenceType(
+            model = ReferenceNode(
                 value=self.ref_lookup(t["$ref"]), name=name, parent=parent
             )
         elif "anyOf" in t or "allOf" in t or "oneOf" in t:
-            model = ListType(name=name, parent=parent, item_type=ObjectType())
+            model = ListNode(name=name, parent=parent, item_type=ObjectNode())
         self.attach_extra_bits(t, model)
         return model
 
@@ -432,11 +435,11 @@ class JsonSchema2Popo:
         self, v: Union[Definition, str], relative_to: Definition = None, was_ref=False
     ) -> str:
         if isinstance(v, Definition):
-            if isinstance(v, ListType):
-                return self.jsdoc_type(v.m_type)
+            if isinstance(v, ListNode):
+                return self.jsdoc_type(v.type)
             elif v.is_primitive:
                 return self.jsdoc_type(v.string_type)
-            elif isinstance(v, ReferenceType) and v.parent is not None:
+            elif isinstance(v, ReferenceNode) and v.parent is not None:
                 return self.jsdoc_type(v.value, relative_to=v.value, was_ref=True)
             else:
                 return (

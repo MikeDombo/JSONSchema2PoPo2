@@ -10,9 +10,9 @@
 {%- macro translate_type(prop) -%}
 {% if prop is string %}
 {% set type = prop %}
-{% elif prop.m_type and prop.m_type == "enum" %}
+{% elif prop.type and prop.type == "enum" %}
 {% set type = python_type(prop.value_type) %}
-{% elif prop.m_type %}
+{% elif prop.type %}
 {% set type = python_type(prop) %}
 {% else %}
 {% set type = python_type(prop.definition) %}
@@ -41,7 +41,7 @@ float64
 package {{package_name}}
 
 {% macro generate_class(model) -%}
-{% if not model.m_type == "enum" %}
+{% if not model.type == "enum" %}
 var {{go_name(model)}}Formats = map[string]string {
 {% for prop in model.properties if prop.format %}
     "{{trn(prop.name)}}": "{{prop.format}}",
@@ -83,7 +83,7 @@ var {{ go_name(model) }}Options = struct{
     {% endfor %}
 }{
 {% for name, value in model.values.items() %}
-    {{name}}: {% if model.value_type.m_type == "string" %}"{{value}}"{% else %}{{value}}{% endif %},
+    {{name}}: {% if model.value_type.type == "string" %}"{{value}}"{% else %}{{value}}{% endif %},
 
 {% endfor %}
 
