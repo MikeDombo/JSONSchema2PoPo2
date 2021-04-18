@@ -1,11 +1,11 @@
 {% macro sentence_case(text) -%}
     {{ text[0]|upper}}{{text[1:] }}
 {%- endmacro -%}
-{% macro jsdoc_typ(prop, relativeTo=None) %}{% raw %}{{% endraw %}{{ translate_type(jsdoc_type(prop.definition.item_type
- or prop.definition, relative_to=relativeTo)) }}{% if get_type(prop, sub=False, module=True) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
+{% macro jsdoc_typ(prop, relativeTo=None, withNamespace=False) %}{% raw %}{{% endraw %}{{ translate_type(jsdoc_type(prop.definition.item_type
+ or prop.definition, relative_to=relativeTo, with_namespace=withNamespace)) }}{% if get_type(prop, sub=False, module=True) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
 {%- endmacro -%}
 {% macro jsdoc_param(name, prop) %}
-@param {{ name }} {{ jsdoc_typ(prop) }} {% if prop.comment %}{{ prop.comment | indent(7) }}{% endif %}
+@param {{ name }} {{ jsdoc_typ(prop, withNamespace=True) }} {% if prop.comment %}{{ prop.comment | indent(7) }}{% endif %}
 {% endmacro %}
 {%- macro translate_type(type, module=False) -%}
 {%- if type is none -%}
@@ -120,7 +120,7 @@ class {{model.python_type_name}}{% if model.extends %} extends {{ model.extends 
     /**
 {% if prop.comment %}     * {{ prop.comment | indent(7) }}
 {% endif %}
-     * @returns {{ jsdoc_typ(prop, relativeTo=None) }}
+     * @returns {{ jsdoc_typ(prop, relativeTo=None, withNamespace=True) }}
 
      */
     get {{trn(prop.name)}}() {
@@ -135,7 +135,7 @@ class {{model.python_type_name}}{% if model.extends %} extends {{ model.extends 
     }
     /**
      * {{ jsdoc_param("value", prop) }}
-     * @returns {% raw %}{{% endraw %}{{translate_type(jsdoc_type(model, relative_to=model))}}{% raw %}}{% endraw %}
+     * @returns {% raw %}{{% endraw %}{{translate_type(jsdoc_type(model, relative_to=model, with_namespace=True))}}{% raw %}}{% endraw %}
 
      */
     with{{sentence_case(trn(prop.name))}}(value) {

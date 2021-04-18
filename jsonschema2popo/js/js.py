@@ -43,7 +43,7 @@ class JS(CodeGenPlugin):
         return "js_class.tmpl"
 
     def jinja_globals(self) -> Dict[str, Callable]:
-        return {"jsdoc_type": JS.jsdoc_type, "python_type": Python.python_type}
+        return {"jsdoc_type": self.jsdoc_type, "python_type": Python.python_type}
 
     def template_search_path(self) -> str:
         return os.path.dirname(os.path.abspath(__file__))
@@ -51,23 +51,39 @@ class JS(CodeGenPlugin):
     def after_generation(self, filename=None):
         JS.format_js_file(filename=filename)
 
-    @staticmethod
     def jsdoc_type(
-        v: Union[Definition, str], relative_to: Definition = None, was_ref=False
+        self,
+        v: Union[Definition, str],
+        relative_to: Definition = None,
+        was_ref=False,
+        with_namespace=False,
     ) -> str:
         if isinstance(v, Definition):
             if isinstance(v, ListNode):
-                return JS.jsdoc_type(v.type)
+                return self.jsdoc_type(v.type, with_namespace=with_namespace)
             elif v.is_primitive:
-                return JS.jsdoc_type(v.string_type)
+                return self.jsdoc_type(v.string_type, with_namespace=with_namespace)
             elif isinstance(v, ReferenceNode) and v.parent is not None:
-                return JS.jsdoc_type(v.value, relative_to=v.value, was_ref=True)
+                return self.jsdoc_type(
+                    v.value,
+                    relative_to=v.value,
+                    was_ref=True,
+                    with_namespace=with_namespace,
+                )
             else:
                 return (
-                    (v.parent.full_name_python_path(relative_to=v) + "~")
-                    if v.parent and not was_ref
-                    else ""
-                ) + v.full_name_python_path(relative_to=None)
+                    (
+                        self.namespace_path + "."
+                        if self.namespace_path and with_namespace
+                        else ""
+                    )
+                    + (
+                        (v.parent.full_name_python_path(relative_to=v) + "~")
+                        if v.parent and not was_ref
+                        else ""
+                    )
+                    + v.full_name_python_path(relative_to=None)
+                )
         else:
             return string_to_type(v)
 

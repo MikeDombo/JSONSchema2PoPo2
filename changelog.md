@@ -4,14 +4,14 @@
 
 - Rewrote internal data models to be strongly typed for easier development of templates and supporting future 
   enhancements
-  
-## TODO
-JS module path in jsdoc
+- Created a plugin interface allowing developers to extend functionality by loading in their own code.
   
 ### BREAKING CHANGES
 
 The format of data provided to templates has changed rather significantly, though I hope this is an improvement.
 See `classes.py` for the models which are provided and what their fields are.
+
+The generated code is supposed to be entirely unchanged. Please open an issue if you find any differences.
 
 ## 2.2.3
 
