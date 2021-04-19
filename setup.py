@@ -48,7 +48,7 @@ setup(
     install_requires=["Jinja2>=2.11.3", "networkx==2.4"],
     extras_require={"Format JS": ["jsbeautifier"], "Format Python": ["black"]},
     packages=["jsonschema2popo"],
-    package_data={"jsonschema2popo": ["*.tmpl"]},
+    package_data={"jsonschema2popo": ["*/*"]},
     include_package_data=True,
     entry_points={
         "console_scripts": ["jsonschema2popo2=jsonschema2popo.jsonschema2popo:main"]

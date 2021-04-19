@@ -4,6 +4,7 @@ include *.md
 # Include the license file
 include LICENSE.txt
 
-include jsonschema2popo/python_class.tmpl
-include jsonschema2popo/js_class.tmpl
-include test/valid/*
+recursive-include jsonschema2popo *
+global-exclude __pycache__/*
+global-exclude JSONSchema2PoPo2.egg-info/*
+global-exclude test/*

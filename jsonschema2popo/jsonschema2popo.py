@@ -81,6 +81,12 @@ class JsonSchema2Popo:
 
         if language == "python" or language == "js" or language == "go":
             self.module = importlib.import_module("." + language, "jsonschema2popo")
+        # Try importing from a specified file path
+        elif os.path.exists(language):
+            spec = importlib.util.spec_from_file_location("", language)
+            self.module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(self.module)
+        # Try importing from some other python module
         else:
             self.module = importlib.import_module(language)
         self.module: CodeGenPlugin = self.module.Plugin()
@@ -494,6 +500,7 @@ def main():
     loader.module.command_line_parser(
         sub_parser=parser.add_argument_group(loader.module.plugin_name())
     )
+    # Update version action to output the plugin's version (if there is a plugin)
     for action in parser._actions:
         if isinstance(action, argparse._VersionAction):
             action.version = action.version + " with {} plugin v{}".format(

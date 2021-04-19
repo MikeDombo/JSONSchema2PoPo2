@@ -1,10 +1,14 @@
 # Changelog
 
-## 3.0.0.rc1
+## 3.0.0rc1
 
 - Rewrote internal data models to be strongly typed for easier development of templates and supporting future 
   enhancements
 - Created a plugin interface allowing developers to extend functionality by loading in their own code.
+  - Developers should extend the [`CodeGenPlugin`](https://github.com/MikeDombo/JSONSchema2PoPo2/blob/master/jsonschema2popo/classes.py#L276) class
+  - Users can then use `--language <name of python module>` to load the plugin as a module
+  - Plugins can use their own templates, add more command line options, and modify the definitions prior to code 
+    generation
   
 ### BREAKING CHANGES
 
@@ -15,7 +19,9 @@ The generated code is supposed to be entirely unchanged. Please open an issue if
 
 ## 2.2.3
 
-- Fix for #8 with #9. Enum generation now works in the root object
+- Fix for [#8](https://github.com/MikeDombo/JSONSchema2PoPo2/issues/8) 
+  with [#9](https://github.com/MikeDombo/JSONSchema2PoPo2/pull/9). 
+  Enum generation now works in the root object
 
 ## 2.2.2
 
