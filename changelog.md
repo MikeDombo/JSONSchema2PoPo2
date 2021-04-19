@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0.0rc2
+
+- Fixed command line usage
+
 ## 3.0.0rc1
 
 - Rewrote internal data models to be strongly typed for easier development of templates and supporting future 
