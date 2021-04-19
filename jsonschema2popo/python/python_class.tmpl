@@ -1,0 +1,167 @@
+from reprlib import repr as limitedRepr
+{% macro get_type(prop, sub=True, relativeTo=None) %}{{ python_type(sub and prop.definition.item_type or prop.definition or None, relative_to=relativeTo)}}
+{%- endmacro %}
+{% macro get_typing(prop, relativeTo=None) %}
+{% if prop.definition.type == 'list' %}List[{{ get_type(prop, relativeTo=relativeTo) }}]
+{% else %}{{ get_type(prop, relativeTo=relativeTo) }}{% endif %}{% endmacro %}
+
+{% macro type_check(prop, name=None, relativeTo=None) %}
+if {% if not prop.validations.required %}{{ name or trn(prop.name) }} is not None and {% endif %} not isinstance({{ name or trn(prop.name) }}, {{ get_type(prop, sub=False, relativeTo=None) }}):
+    raise TypeError("{{trn(prop.name)}} must be {{ get_type(prop, sub=False, relativeTo=None) }}")
+{% if prop.definition.type == 'list' %}
+if {% if not prop.validations.required %}{{ name or trn(prop.name) }} is not None and {% endif %} not all(isinstance(i, {{get_type(prop, relativeTo=None) }}) for i in {% if name %}{{ name }}{% else %}{{ trn(prop.name) }}{% endif %}):
+    raise TypeError("{{trn(prop.name)}} list values must be {{ get_type(prop, relativeTo=None) }}")
+{% endif %}
+{% endmacro %}
+
+{% if enum_used %}
+import enum
+{% endif %}
+{% if use_types and list_used %}
+from typing import List
+{% endif %}
+
+{% macro generate_class(model) %}
+class {{model.python_type_name}}{% if model.type == "enum" %}(enum.Enum){% endif %}{% if model.extends %}({{ model.extends.full_name_python_path()}}){% endif %}:
+{% if model.comment %}
+    """
+    {{ model.comment | indent(4) }}
+    """
+{% endif %}
+{% for child in model.children %}
+    {{ generate_class(child)|indent(8) }}
+{% endfor %}
+
+{% if use_slots and not model.type == "enum" %}
+    __slots__ = [{% for prop in model.properties %}"__{{ trn(prop.name) }}", {% endfor %}]
+{% endif %}
+
+{% if model.type == "enum" %}
+{% for name, value in model.values.items() %}
+    {{name}} = {% if model.value_type.type == "string" %}"{{value}}"{% else %}{{value}}{% endif %}
+
+{% endfor %}
+{% endif %}
+
+{% if model.properties %}
+    _types_map = {
+{% for prop in model.properties %}
+        '{{trn(prop.name)}}': {'type': {{python_type(prop.definition or None, relative_to=model)}}, 'subtype': {{python_type(prop.definition.item_type or None, relative_to=model)}}},
+{% endfor %}
+    }
+    _formats_map = {
+{% for prop in model.properties if prop.format %}
+        '{{trn(prop.name)}}': '{{prop.format}}',
+{% endfor %}
+    }
+    _validations_map = {
+{% for prop in model.properties if prop.validations %}
+        '{{ trn(prop.name) }}': { {% for type, value in prop.validations.items() %}'{{ type }}': {% if type == "pattern" %}'{{ value }}'{% else %}{{ value }}{% endif %},{% endfor %}},
+{% endfor %}
+    }
+{% endif %}
+
+{% if not model.type == "enum" %}
+    def __init__(self
+{% if model.extends %}
+            , *args
+{% endif %}
+{% for prop in model.properties %}
+            , {{trn(prop.name)}}{% if use_types %}: {{ get_typing(prop, relativeTo=model) }}{% endif %}={% if prop.definition.string_type == "string" and prop.default is not none %}'{{prop.default}}'{% else %}{{prop.default}}{% endif %}
+{% endfor %}
+{% if model.extends %}
+            , **kwargs
+{% endif %}
+            ):
+{% if model.properties_have_comments %}
+        """
+{% for prop in model.properties %}
+{% if prop.comment %}
+        :param {{ trn(prop.name) }}: {{ prop.comment | indent(12) }}
+{% endif %}
+{% endfor %}
+        """
+{% endif %}
+{% if model.extends %}
+        super().__init__(*args, **kwargs)
+{% endif %}
+        pass
+{% if constructor_type_check %}
+{% for prop in model.properties %}
+        {{ type_check(prop, relativeTo=model)|indent(8) }}
+{% endfor %}
+{% endif %}
+{% for prop in model.properties %}
+        self.__{{trn(prop.name)}} = {{trn(prop.name)}}
+{% endfor %}
+{% endif %}
+    
+{% for prop in model.properties %}
+    def _get_{{trn(prop.name)}}(self):
+        return self.__{{trn(prop.name)}}
+    def _set_{{trn(prop.name)}}(self, value):
+        {{ type_check(prop, "value", relativeTo=model)|indent(8) }}
+        self.__{{trn(prop.name)}} = value
+    {{trn(prop.name)}} = property(_get_{{trn(prop.name)}}, _set_{{trn(prop.name)}})
+{% if prop.comment %}
+    """
+    {{ prop.comment | indent(4) }}
+    """
+{% endif %}
+    
+{% endfor %}
+
+    @staticmethod
+    def from_dict(d):
+{% if model.type == "enum" %}
+        return {{ model.full_name_python_path() }}(d)
+{% else %}
+{% if model.extends %}
+        v = d.copy()
+{% else %}
+        v = {}
+{% endif %}
+{% for prop in model.properties %}
+        if "{{ prop.name }}" in d:
+{% if prop.definition.type == 'list' %}
+            v["{{ trn(prop.name) }}"] = [{{ get_type(prop, relativeTo=None) }}.from_dict(p) if hasattr({{get_type(prop, relativeTo=None) }}, 'from_dict') else p for p in d["{{ prop.name }}"]]
+{% else %}
+            v["{{ trn(prop.name) }}"] = {{ get_type(prop, relativeTo=None) }}.from_dict(d["{{prop.name}}"]) if hasattr({{get_type(prop, relativeTo=None) }}, 'from_dict') else d["{{ prop.name }}"]
+{% endif %}
+{% endfor %}
+        return {{ model.full_name_python_path() }}(**v)
+{% endif %}
+
+
+    def as_dict(self):
+{% if model.type == "enum" %}
+        return self.value
+{% else %}
+{% if model.extends %}
+        d = super().as_dict()
+{% else %}
+        d = {}
+{% endif %}
+{% for prop in model.properties %}
+        if self.__{{trn(prop.name)}} is not None:
+{% if prop.definition.type == 'list' %}
+            d['{{prop.name}}'] = [p.as_dict() if hasattr(p, 'as_dict') else p for p in self.__{{trn(prop.name)}}]
+{% else %}
+            d['{{prop.name}}'] = self.__{{trn(prop.name)}}.as_dict() if hasattr(self.__{{trn(prop.name)}}, 'as_dict') else self.__{{trn(prop.name)}}
+{% endif %}
+{% endfor %}
+        return d
+{% endif %}
+
+    def __repr__(self):
+{% if model.type == "enum" %}
+        return "<Enum {{model.python_type_name}}. {}: {}>".format(limitedRepr(self.name), limitedRepr(self.value))
+{% else %}
+        return "<Class {{model.python_type_name}}. {{ model.properties|map(attribute="name")|map('trn')|map('regex_replace', '(.+)', '\\1: {}')|join(', ') }}>".format({{ model.properties|map(attribute="name")|map('trn')|map('regex_replace', '(.+)', 'limitedRepr(self.__\\1[:20] if isinstance(self.__\\1, bytes) else self.__\\1)')|join(', ') }})
+{% endif %}
+{% endmacro %}
+
+
+{% for model in models %}
+{{ generate_class(model) }}
+{% endfor %}

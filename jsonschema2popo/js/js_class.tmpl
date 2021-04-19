@@ -1,0 +1,271 @@
+{% macro sentence_case(text) -%}
+    {{ text[0]|upper}}{{text[1:] }}
+{%- endmacro -%}
+{% macro jsdoc_typ(prop, relativeTo=None, withNamespace=False) %}{% raw %}{{% endraw %}{{ translate_type(jsdoc_type(prop.definition.item_type
+ or prop.definition, relative_to=relativeTo, with_namespace=withNamespace)) }}{% if get_type(prop, sub=False, module=True) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
+{%- endmacro -%}
+{% macro jsdoc_param(name, prop) %}
+@param {{ name }} {{ jsdoc_typ(prop, withNamespace=True) }} {% if prop.comment %}{{ prop.comment | indent(7) }}{% endif %}
+{% endmacro %}
+{%- macro translate_type(type, module=False) -%}
+{%- if type is none -%}
+null
+{%- elif type == "str" -%}
+String
+{%- elif type == "list" -%}
+Array
+{%- elif type == "bytes" -%}
+Buffer
+{%- elif type == "bool" -%}
+Boolean
+{%- elif type == "dict" -%}
+Object
+{%- elif type == "int" or type == "float" -%}
+Number
+{%- else -%}
+{{ type }}
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro check_type(type, var) -%}
+{%- if type == "String" -%}
+typeof {{ var }} === "string"
+{%- elif type == "Boolean" -%}
+typeof {{ var }} === "boolean"
+{%- elif type == "Number" -%}
+typeof {{ var }} === "number"
+{%- else -%}
+{{ var }} instanceof {{ type }}
+{%- endif -%}
+{%- endmacro -%}
+
+{% macro translate_bool(bool) %}
+{% if bool is sameas True %}
+true
+{% elif bool is sameas False %}
+false
+{% elif bool is none %}
+null
+{% else %}
+{{ bool }}
+{% endif %}
+{% endmacro %}
+
+{% macro get_type(prop, relativeTo=None, sub=True, module=False) -%}{{ translate_type(python_type(sub and prop.definition|attr("item_type") or prop.definition or None, relative_to=relativeTo))-}}{%-
+endmacro -%}
+{% macro type_check(prop, name=None, relativeTo=None) %}
+{% if prop.definition.type %}
+if ({{ name or trn(prop.name) }} !== null && !({{ check_type(get_type(prop, sub=False, relativeTo=None), name or trn(prop.name)) }})) {
+    throw new Error("{{trn(prop.name)}} must be {{get_type(prop, relativeTo=None, sub=False)-}}");
+}
+{% endif %}
+{% if prop.definition.type == 'list' and prop.definition.item_type %}
+if ({{ name or trn(prop.name) }} !== null && !{{ name or trn(prop.name) }}.every((v) => {{ check_type(get_type(prop, relativeTo=None), "v") }})) {
+    throw new Error("{{trn(prop.name)}} array values must be {{ get_type(prop, relativeTo=None)-}}");
+}
+{% endif %}
+{% endmacro %}
+
+{%- macro generate_class(model) -%}
+/**
+ * {% if model.comment %}{{ model.comment | indent(3) }}{% endif %}
+
+ *
+ * @class
+{% if namespace_path %} * @memberOf {{ namespace_path }}{% endif %}
+
+ */
+class {{model.python_type_name}}{% if model.extends %} extends {{ model.extends }}{% endif %} {
+{% for prop in model.properties %}
+    #__{{trn(prop.name)}} = null;
+{% endfor %}
+
+{% if not model.type == "enum" %}
+    /**
+{% for prop in model.properties %}
+     * {{ jsdoc_param(trn(prop.name), prop) }}
+{% endfor %}
+     */
+    constructor(
+{% for prop in model.properties %}
+            {{trn(prop.name)}}={{translate_bool(prop.default)}},
+{% endfor %}
+{% if model.extends %}
+            ...superArgs
+{% endif %}
+            ) {
+{% if model.extends %}
+        super(...superArgs);
+{% endif %}
+{% if constructor_type_check %}
+{% for prop in model.properties %}
+        {{ type_check(prop, relativeTo=model)|indent(8) }}
+{% endfor %}
+{% endif %}
+{% for prop in model.properties %}
+        this.#__{{trn(prop.name)}} = {{trn(prop.name)}};
+{% endfor %}
+    }
+{% else %}
+    #value = null;
+    constructor(value=null) {
+        if (!Object.values({{ model.full_name_python_path() }}.options).includes(value)) {
+            throw new Error("Value must be one of the enumerated options");
+        }
+        this.#value = value;
+    }
+{% endif %}
+
+{% for prop in model.properties %}
+    /**
+{% if prop.comment %}     * {{ prop.comment | indent(7) }}
+{% endif %}
+     * @returns {{ jsdoc_typ(prop, relativeTo=None, withNamespace=True) }}
+
+     */
+    get {{trn(prop.name)}}() {
+        return this.#__{{trn(prop.name)}};
+    }
+    /**
+     * {{ jsdoc_param("value", prop) }}
+     */
+    set {{trn(prop.name)}}(value) {
+        {{ type_check(prop, "value")|indent(8) }}
+        this.#__{{trn(prop.name)}} = value;
+    }
+    /**
+     * {{ jsdoc_param("value", prop) }}
+     * @returns {% raw %}{{% endraw %}{{translate_type(jsdoc_type(model, relative_to=model, with_namespace=True))}}{% raw %}}{% endraw %}
+
+     */
+    with{{sentence_case(trn(prop.name))}}(value) {
+        this.{{trn(prop.name)}} = value;
+        return this;
+    }
+
+{% endfor %}
+
+    static fromMap(d) {
+{% if model.type == "enum" %}
+        return {{ model.python_type_name }}[{{ model.python_type_name }}.optionsFlipped[d]];
+{% else %}
+        const ret = new {{ model.full_name_python_path() }}();
+{% for prop in model.properties %}
+        if ("{{ prop.name }}" in d) {
+{% if prop.definition.type == 'list' %}
+            ret.{{ trn(prop.name) }} = d["{{ prop.name }}"].reduce((acc, v) => {acc.push(Object.prototype.hasOwnProperty.call({{ get_type(prop) }}, "fromMap") ? {{ get_type(prop) }}.fromMap(v) : v); return acc;}, []);
+{% else %}
+            ret.{{ trn(prop.name) }} = Object.prototype.hasOwnProperty.call({{ get_type(prop) }}, "fromMap") ? {{ get_type(prop) }}.fromMap(d["{{prop.name}}"]) : d["{{ prop.name }}"];
+{% endif %}
+        }
+{% endfor %}
+        return ret;
+{% endif %}
+    }
+
+
+    asMap() {
+{% if model.type == "enum" %}
+        return this.#value;
+{% else %}
+{% if model.extends %}
+        const d = super.asMap();
+{% else %}
+        const d = {};
+{% endif %}
+{% for prop in model.properties %}
+        if (this.{{trn(prop.name)}} !== null) {
+{% if prop.definition.type == "list" %}
+            d["{{prop.name}}"] = this.{{trn(prop.name)}}.reduce((acc, v) => {acc.push(Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(v), "asMap") ? v.asMap() : v); return acc;}, []);
+{% else %}
+            d["{{prop.name}}"] = Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(this.{{trn(prop.name)}}), "asMap") ? this.{{trn(prop.name)}}.asMap() : this.{{trn(prop.name)}};
+{% endif %}
+        }
+{% endfor %}
+        return d;
+{% endif %}
+    }
+};
+{% if model.type == "enum" %}
+Object.defineProperty({{ model.full_name_python_path() }}, "options", {
+    value: {
+{% for name, value in model.values.items() %}
+    {{ name }}: {% if model.value_type.type == "string" %}"{{value}}"{% else %}{{value}}{% endif %},
+{% endfor %}
+    }
+});
+Object.defineProperty({{ model.full_name_python_path() }}, "optionsFlipped", {
+    value: {
+{% for name, value in model.values.items() %}
+    {% if model.value_type.type == "string" %}"{{value}}"{% else %}{{value}}{% endif %}: "{{ name }}",
+{% endfor %}
+    }
+});
+
+{% for name, value in model.values.items() %}
+/**
+ * @member {% raw %}{{% endraw %}{% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ model.python_type_name }}{% raw %}}{% endraw %} {{ name }}
+ * @memberOf {% if namespace_path %}{{ namespace_path + "." }}{% endif %}{{ model.python_type_name }}#
+ * @readonly
+ */
+Object.defineProperty({{ model.full_name_python_path() }}, "{{ name }}", {
+    value: new {{ model.full_name_python_path() }}({% if model.value_type.type == "string" %}"{{value}}"{% else %}{{value}}{% endif %})
+});
+{% endfor %}
+{% endif %}
+{% for child in model.children %}
+
+{{ child.full_name_python_path() }} = {{generate_class(child)|indent(4)}}
+{% endfor %}
+{% if model.properties %}
+
+Object.defineProperty({{ model.full_name_python_path() }}, "typesMap", {
+    value: {
+{% for prop in model.properties %}
+{% if get_type(prop, relativeTo=model, sub=False) == "Array" %}
+    {{trn(prop.name)}}: {'type': Array, 'subtype': {{get_type(prop, relativeTo=None)}}},
+{% else %}
+    {{trn(prop.name)}}: {'type': {{get_type(prop, relativeTo=None, sub=False)}}, 'subtype': null},
+{% endif %}
+{% endfor %}
+    }
+});
+Object.defineProperty({{ model.full_name_python_path() }}, "formatsMap", {
+    value: {
+{% for prop in model.properties if prop.format %}
+        {{trn(prop.name)}}: '{{prop.format}}',
+{% endfor %}
+    }
+});
+Object.defineProperty({{ model.full_name_python_path() }}, "validationsMap", {
+    value: {
+{% for prop in model.properties if prop.validations %}
+        '{{ trn(prop.name) }}': { {% for type, value in prop.validations.items() %}'{{ type }}': {% if type == "pattern" %}/{{ value }}/{% else %}{{ translate_bool(value) }}{% endif %},{% endfor %}},
+{% endfor %}
+    }
+});
+{% endif %}
+
+{% endmacro %}
+
+
+{%- for model in models %}
+{{-generate_class(model)}}
+
+{% endfor %}
+
+/**
+ * @type {% raw %}{{{% endraw %}
+
+{% for model in models %}
+{{model.name}}: {{model.name}}{% if not loop.last %},
+{% endif %}{% endfor %}
+
+{% raw %}}}{% endraw %}
+
+ */
+module.exports = {
+{%- for model in models %}
+    {{model.name}},
+{% endfor %}
+};

@@ -1,3 +1,4 @@
+import argparse
 import importlib.util
 import json
 import os
@@ -10,11 +11,9 @@ import mypy.main
 from mypy.fscache import FileSystemCache
 
 from jsonschema2popo import jsonschema2popo
-from jsonschema2popo.jsonschema2popo import (
-    format_python_file,
-    format_js_file,
-    format_go_file,
-)
+from jsonschema2popo.go.go import Go
+from jsonschema2popo.js.js import JS
+from jsonschema2popo.python.python import Python
 
 DEFINITIONS_BASIC_GENERATION = """{
             "definitions": {
@@ -124,35 +123,41 @@ class JsonSchema2Popo(unittest.TestCase):
         self.test_file_go = f"generated/{self.id()}.go"
 
         loader = jsonschema2popo.JsonSchema2Popo(
-            use_types=True,
-            constructor_type_check=True,
-            use_slots=True,
             language="python",
             **kwargs,
         )
+        loader.update_args(
+            argparse.Namespace(
+                use_types=True,
+                constructor_type_check=True,
+                use_slots=True,
+            )
+        )
         loader.process(json.loads(schema))
         loader.write_file(self.test_file)
-        format_python_file(self.test_file)
+        Python.format_python_file(self.test_file)
 
         loader = jsonschema2popo.JsonSchema2Popo(
-            use_types=True,
-            constructor_type_check=True,
-            use_slots=True,
             language="js",
             **kwargs,
         )
+        loader.update_args(argparse.Namespace(constructor_type_check=True))
         loader.process(json.loads(schema))
         loader.write_file(self.test_file_js)
-        format_js_file(self.test_file_js)
+        JS.format_js_file(self.test_file_js)
 
         loader = jsonschema2popo.JsonSchema2Popo(
             language="go",
-            package_name="generated",
             **kwargs,
+        )
+        loader.update_args(
+            argparse.Namespace(
+                package_name="generated",
+            )
         )
         loader.process(json.loads(schema))
         loader.write_file(self.test_file_go)
-        format_go_file(self.test_file_go)
+        Go.format_go_file(self.test_file_go)
 
     def test_root_basic_generation(self):
         self.generate_files(
@@ -358,6 +363,7 @@ class JsonSchema2Popo(unittest.TestCase):
         foo.ABcd(Child1=0, Child2="2")
         foo.SubRef(ChildA=foo.ABcd())
         foo.DirectRef(Child1=0, Child2="2")
+        assert isinstance(foo.DirectRef.from_dict({}), foo.DirectRef)
 
     def test_definitions_with_nested_refs(self):
         self.generate_files(

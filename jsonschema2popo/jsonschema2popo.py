@@ -1,39 +1,63 @@
 #!/usr/bin/env python
-
-import os
 import argparse
+import importlib
 import json
+import logging
+import os
 import re
-import pathlib
+import sys
+from collections import defaultdict
+from typing import List, Optional, Dict, Set
 
 import networkx
 from jinja2 import Environment, FileSystemLoader
+
+from jsonschema2popo.classes import (
+    Definition,
+    ReferenceNode,
+    EnumNode,
+    ListNode,
+    StringNode,
+    IntegerNode,
+    NumericNode,
+    ObjectNode,
+    BooleanNode,
+    NullNode,
+    Property,
+    extra_generation_options,
+    CodeGenPlugin,
+)
 from . import __version__
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+logger = logging.getLogger("main")
+
+J2P_TYPES = {
+    "string": str,
+    "integer": int,
+    "number": float,
+    "object": dict,
+    "list": list,
+    "boolean": bool,
+    "null": None,
+    "bytes": bytes,
+}
+
+
+def string_to_type(t: str) -> str:
+    return J2P_TYPES[t].__name__ if t in J2P_TYPES else t
 
 
 class JsonSchema2Popo:
     """Converts a JSON Schema to a Plain Old Python Object class"""
 
-    PYTHON_CLASS_TEMPLATE_FNAME = "python_class.tmpl"
-    JS_CLASS_TEMPLATE_FNAME = "js_class.tmpl"
-    GO_STRUCT_TEMPLATE_FNAME = "go_struct.tmpl"
-
-    TEMPLATES = {
-        "python": PYTHON_CLASS_TEMPLATE_FNAME,
-        "js": JS_CLASS_TEMPLATE_FNAME,
-        "go": GO_STRUCT_TEMPLATE_FNAME,
-    }
-
     J2P_TYPES = {
-        "string": str,
-        "integer": int,
-        "number": float,
-        "object": type,
-        "array": list,
-        "boolean": bool,
-        "null": None,
+        "string": StringNode(),
+        "integer": IntegerNode(),
+        "number": NumericNode(),
+        "object": ObjectNode(),
+        "array": ListNode(),
+        "boolean": BooleanNode(),
+        "null": NullNode(),
     }
 
     @staticmethod
@@ -46,50 +70,77 @@ class JsonSchema2Popo:
 
     def __init__(
         self,
-        use_types=False,
-        constructor_type_check=False,
-        use_slots=False,
         generate_definitions=True,
         generate_root=True,
         translate_properties=False,
         language="python",
-        namespace_path="",
-        package_name="",
         custom_template="",
     ):
         self.list_used = False
         self.enum_used = False
 
-        search_path = SCRIPT_DIR if not custom_template else os.getcwd()
+        if language == "python" or language == "js" or language == "go":
+            self.module = importlib.import_module("." + language, "jsonschema2popo")
+        # Try importing from a specified file path
+        elif os.path.exists(language):
+            spec = importlib.util.spec_from_file_location("", language)
+            self.module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(self.module)
+        # Try importing from some other python module
+        else:
+            self.module = importlib.import_module(language)
+        self.module: CodeGenPlugin = self.module.Plugin()
+        search_path = (
+            self.module.template_search_path() if not custom_template else os.getcwd()
+        )
+
         self.jinja = Environment(
             loader=FileSystemLoader(searchpath=search_path), trim_blocks=True
         )
         self.jinja.filters["regex_replace"] = lambda s, find, replace: re.sub(
             find, replace, s
         )
-        self.use_types = use_types
-        self.use_slots = use_slots
-        self.constructor_type_check = constructor_type_check
+        self.jinja.globals["trn"] = self.maybe_translate_property_name
+        self.jinja.filters["trn"] = self.maybe_translate_property_name
+
+        jinja_globals = self.module.jinja_globals()
+        self.jinja.globals.update(jinja_globals)
+        self.jinja.filters.update(jinja_globals)
+
         self.generate_root = generate_root
         self.generate_definitions = generate_definitions
         self.translate_properties = translate_properties
-        self.language = language
-        self.namespace_path = namespace_path
-        self.package_name = package_name
         self.custom_template = custom_template
 
-        self.definitions = []
+        self.definitions: List[Definition] = []
+        self.searching_for_references: Dict[str, Set[ReferenceNode]] = defaultdict(set)
+
+        extra_generation_options["translate_properties"] = self.translate_properties
 
     def load(self, json_schema_file):
         self.process(json.load(json_schema_file))
+        self.module.after_processing(definitions=self.definitions)
 
-    def get_model_dependencies(self, model):
+    def get_model_dependencies(self, model: Definition) -> List[str]:
         deps = set()
-        for prop in model["properties"]:
-            if prop["_type"]["type"] not in self.J2P_TYPES.values():
-                deps.add(prop["_type"]["type"])
-            if prop["_type"]["subtype"] not in self.J2P_TYPES.values():
-                deps.add(prop["_type"]["subtype"])
+        if isinstance(model, ObjectNode):
+            for prop in model.properties:
+                if not prop.definition.is_primitive:
+                    deps.update(self.get_model_dependencies(prop.definition))
+                    for a in prop.definition.ancestors():
+                        deps.add(a.full_name_path)
+                if (
+                    isinstance(prop.definition, ListNode)
+                    and not prop.definition.item_type.is_primitive
+                ):
+                    deps.update(self.get_model_dependencies(prop.definition.item_type))
+        elif isinstance(model, ListNode) and not model.item_type.is_primitive:
+            deps.update(self.get_model_dependencies(model.item_type))
+        if isinstance(model, ReferenceNode) and model.parent is not None:
+            deps.add(model.full_name_path)
+        else:
+            deps.discard(model.full_name_path)
+
         return list(deps)
 
     def process(self, json_schema):
@@ -102,12 +153,12 @@ class JsonSchema2Popo:
             g = networkx.DiGraph()
             models_map = {}
             for model in self.definitions:
-                models_map[model["name"]] = model
+                models_map[model.full_name_path] = model
                 deps = self.get_model_dependencies(model)
                 if not deps:
-                    g.add_edge(model["name"], "")
+                    g.add_edge(model.full_name_path, "")
                 for dep in deps:
-                    g.add_edge(model["name"], dep)
+                    g.add_edge(model.full_name_path, dep)
 
             self.definitions = []
             if self.generate_definitions:
@@ -126,166 +177,129 @@ class JsonSchema2Popo:
             root_object_name = "RootObject"
         if self.generate_root:
             root_model = self.definition_parser(root_object_name, json_schema)
+            if root_model is None:
+                root_model = ObjectNode(name=root_object_name)
             self.definitions.append(root_model)
 
-    def definition_parser(self, _obj_name, _obj, sub_model=""):
-        model = {"name": _obj_name, "subModels": [], "parent": sub_model}
+    def attach_extra_bits(self, _obj, model: Definition):
+        if "$ref" in _obj:
+            self.attach_ref_value(_obj["$ref"], model)
+        if model.full_name_path in self.searching_for_references:
+            for m in self.searching_for_references[model.full_name_path]:
+                m.value = model
+            del self.searching_for_references[model.full_name_path]
 
         if "description" in _obj:
-            model["comment"] = _obj["description"]
+            model.comment = _obj["description"]
 
-        join_str = "._"
-        if self.translate_properties:
-            join_str = "."
-        sub_prefix = "_"
-        if self.translate_properties:
-            sub_prefix = ""
+        if (
+            not model.is_primitive
+            and not isinstance(model, ReferenceNode)
+            and not isinstance(model, ListNode)
+            and model.parent is not None
+        ):
+            model.parent.children.add(model)
 
-        if "$ref" in _obj and _obj["$ref"].startswith("#/definitions/"):
-            # References defined at a top level should be copied from what it is referencing
-            ref_path = _obj["$ref"].split("/")[2:]
-            ref = join_str.join(ref_path)
+    def attach_ref_value(self, ref: str, model: Definition):
+        if isinstance(model, ReferenceNode) and model.value is None:
+            # Only supporting "#/definitions/"
+            ref_path = ref.split("/")[2:]
+            ref = ".".join(ref_path)
+            # Add to search list so that it is filled in at a later time
+            self.searching_for_references[ref].add(model)
 
-            for model in self.definitions:
-                if model["name"] in ref_path:
-                    subModels = model["subModels"]
-                    built_path = model["name"]
+    def ref_lookup(self, ref) -> Optional[Definition]:
+        if not ref.startswith("#/definitions/"):
+            logger.warning(
+                "References to anything other than #/definitions/ are not supported %s",
+                ref,
+            )
+            return None
 
-                    i = 0
-                    while i < len(subModels) and subModels:
-                        subModel = subModels[i]
-                        i = i + 1
+        ref_path = ref.split("/")[2:]
+        ref = ".".join(ref_path)
 
-                        if "subModels" in subModel:
-                            if self.strip_sub_prefix(subModel["name"]) in ref_path:
-                                built_path = built_path + "." + subModel["name"]
-                                subModels = subModel["subModels"]
-                                model = subModel
-                                i = 0
-                        if built_path == ref:
-                            break
+        def search(m: Definition, ref):
+            if m.full_name_path == ref:
+                return m
+            for mo in m.children:
+                found = search(mo, ref)
+                if found is not None:
+                    return found
+            return None
 
-                    if ref_path[len(ref_path) - 1] == self.strip_sub_prefix(
-                        model["name"]
-                    ):
-                        model = model.copy()
-                        model["name"] = _obj_name
-                        model["parent"] = sub_model
-                        return model
+        for model in self.definitions:
+            found = search(model, ref)
+            if found is not None:
+                return found
+        return None
 
-            print("Unable to find object refs for ", "/".join(ref_path))
+    def definition_parser(
+        self, _obj_name, _obj, parent: Definition = None
+    ) -> Optional[Definition]:
+        model: Optional[Definition] = None
 
-        if "type" in _obj:
-            model["type"] = self.type_parser(_obj)
-            model["text_type"] = _obj["type"]
+        if "$ref" in _obj:
+            ref = self.ref_lookup(_obj["$ref"])
+            model = ReferenceNode(parent=parent, name=_obj_name, value=ref)
 
         if "enum" in _obj:
             enum = {}
             for i, v in enumerate(_obj["enum"]):
                 enum[v if "javaEnumNames" not in _obj else _obj["javaEnumNames"][i]] = v
-            model["enum"] = enum
+            model = EnumNode(parent=parent, name=_obj_name, values=enum)
+            model.value_type = self.type_parser(_obj, name=_obj_name)
+            model.value_type.parent = model
             self.enum_used = True
+
+        if "type" in _obj:
+            if model is None:
+                model = self.type_parser(_obj, name=_obj_name, parent=parent)
+        else:
+            return model
 
         if "extends" in _obj and "$ref" in _obj["extends"]:
             if _obj["extends"]["$ref"].endswith(".json"):
                 with open(_obj["extends"]["$ref"], "r") as f:
                     ref_file = json.load(f)
                     self.process(ref_file)
-                    model["extends"] = ref_file["title"]
+                    model.extends = self.ref_lookup(ref_file["title"])
             else:
-                ref_path = _obj["extends"]["$ref"].split("/")[2:]
-                ref = join_str.join(ref_path)
-                if sub_model and sub_model.endswith(_obj_name):
-                    subs = sub_model.split(".")[-1]
-                    ref = ref[len(sub_model) - len(subs) :]
-                model["extends"] = ref
+                model.extends = self.ref_lookup(_obj["extends"]["$ref"])
 
-        model["properties"] = []
+        properties: List[Property] = []
         if "properties" in _obj:
             for _prop_name, _prop in _obj["properties"].items():
-                _type = self.type_parser(_prop)
-                _default = None
-                _comment = None
+                property = Property(
+                    name=_prop_name,
+                    definition=self.definition_parser(_prop_name, _prop, parent=model),
+                )
+                property.definition.name = _prop_name
+                properties.append(property)
+
                 if "default" in _prop:
-                    _default = _type["type"](_prop["default"])
-                    if _type["type"] == str:
-                        _default = "'{}'".format(_default)
+                    property.default = _prop["default"]
 
                 if "description" in _prop:
-                    _comment = _prop["description"]
+                    property.comment = _prop["description"]
 
-                read_list = self.definitions[:]
-                read_list.append(model)
-
-                def find_parent(path, model):
-                    return [
-                        (path + "." + m["name"], find_parent(path + "." + m["name"], m))
-                        for m in model["subModels"]
-                        if "subModels" in m
-                    ]
-
-                potential_paths = list(
-                    JsonSchema2Popo.flatten(
-                        [find_parent(model["name"], model) for model in read_list]
-                    )
-                )
-
-                parent_name = sub_model + join_str + _prop_name
-                if not sub_model:
-                    parent_name = _obj_name + join_str + _prop_name
-                    for path in potential_paths:
-                        if path.endswith(parent_name) and len(path) > len(parent_name):
-                            parent_name = path
-
-                if _type["type"] == list and _type["subtype"] == type:
-                    _type["subtype"] = sub_prefix + _prop_name
-                    _type["parent"] = parent_name
-                    model["subModels"].append(
-                        self.definition_parser(
-                            sub_prefix + _prop_name,
-                            _prop["items"],
-                            sub_model=parent_name,
-                        )
-                    )
-
-                if "$ref" in _prop and _prop["$ref"].startswith("#/definitions/"):
-                    # Properties with references should reference the existing defined classes
-                    ref = _prop["$ref"].split("/")[2:]
-                    _type = {"type": join_str.join(ref), "subtype": None}
-
-                if ("type" in _prop and _prop["type"] == "object") or "enum" in _prop:
-                    _type = {
-                        "type": sub_prefix + _prop_name,
-                        "subtype": None,
-                        "parent": parent_name,
-                    }
-
-                    sub_mod = self.definition_parser(
-                        sub_prefix + _prop_name, _prop, sub_model=parent_name
-                    )
-
-                    # Only generate sub models when the sub model actually has properties, otherwise treat is as
-                    # a dict, which is what an object is to JSON
-                    if sub_mod["properties"] or "enum" in sub_mod:
-                        model["subModels"].append(sub_mod)
-                    else:
-                        _type = {
-                            "type": dict,
-                            "subtype": None,
-                        }
-
-                    if "enum" in _prop:
-                        self.enum_used = True
-
-                _format = None
-                if "format" in _prop:
-                    _format = _prop["format"]
                 if (
-                    _type["type"] == list
+                    isinstance(property.definition, ListNode)
+                    and not property.definition.item_type.is_primitive
+                    and not isinstance(property.definition.item_type, ReferenceNode)
+                ):
+                    self.definition_parser(
+                        _prop_name, _prop["items"], parent=property.definition
+                    )
+
+                if "format" in _prop:
+                    property.format = _prop["format"]
+                if (
+                    isinstance(property.definition, ListNode)
                     and "items" in _prop
                     and isinstance(_prop["items"], list)
                 ):
-                    _format = _prop["items"][0]["format"]
+                    property.format = _prop["items"][0]["format"]
 
                 _validations = {"required": False}
                 validation_types = [
@@ -300,36 +314,31 @@ class JsonSchema2Popo:
                 for t in validation_types:
                     if t in _prop:
                         _validations[t] = _prop[t]
-                    if _type["type"] == list and "items" in _prop:
+                    if isinstance(property.definition, ListNode) and "items" in _prop:
                         array_validation = _prop["items"]
                         if t in array_validation:
                             _validations[t] = array_validation[t]
                 if "required" in _obj and _prop_name in _obj["required"]:
                     _validations["required"] = True
+                property.validations = _validations
 
-                prop = {
-                    "_name": self.get_prop_name(_prop_name),
-                    "_original_name": _prop_name,
-                    "_type": _type,
-                    "_default": _default,
-                    "_format": _format,
-                    "_comment": _comment,
-                    "_validations": _validations,
-                }
-                model["properties"].append(prop)
-        model["propertiesHaveComment"] = any(p["_comment"] for p in model["properties"])
+        if isinstance(model, ObjectNode):
+            model.properties = properties
+            model.properties_have_comments = any(p.comment for p in model.properties)
+        self.attach_extra_bits(_obj, model)
         return model
 
-    def type_parser(self, t):
-        _type = None
-        _subtype = None
+    def type_parser(self, t, name, parent: Definition = None) -> Definition:
+        model = None
         if "type" in t:
             if t["type"] == "array" and "items" in t:
                 self.list_used = True
-                _type = self.J2P_TYPES[t["type"]]
+                model = ListNode(name=name, parent=parent)
                 if isinstance(t["items"], list):
                     if "type" in t["items"][0]:
-                        _subtype = self.J2P_TYPES[t["items"][0]["type"]]
+                        model.item_type = self.definition_parser(
+                            name, t["items"][0], parent
+                        )
                     elif (
                         "$ref" in t["items"][0]
                         or "oneOf" in t["items"][0]
@@ -339,10 +348,17 @@ class JsonSchema2Popo:
                             ref = t["items"][0]["$ref"]
                         else:
                             ref = t["items"][0]["oneOf"][0]["$ref"]
-                        _subtype = ref.split("/")[-1]
+                        model.item_type = ReferenceNode(
+                            value=self.ref_lookup(ref), name=name, parent=parent
+                        )
+                        self.attach_ref_value(ref, model.item_type)
+                    if "format" in t["items"][0]:
+                        model.item_format = t["items"][0]["format"]
                 elif isinstance(t["items"], dict):
                     if "type" in t["items"]:
-                        _subtype = self.J2P_TYPES[t["items"]["type"]]
+                        model.item_type = self.definition_parser(
+                            name, t["items"], parent
+                        )
                     elif (
                         "$ref" in t["items"]
                         or "oneOf" in t["items"]
@@ -352,49 +368,54 @@ class JsonSchema2Popo:
                             ref = t["items"]["$ref"]
                         else:
                             ref = t["items"]["oneOf"][0]["$ref"]
-                        _subtype = ref.split("/")[-1]
+                        model.item_type = ReferenceNode(
+                            value=self.ref_lookup(ref), name=name, parent=parent
+                        )
+                        self.attach_ref_value(ref, model.item_type)
+                    if "format" in t["items"]:
+                        model.item_format = t["items"]["format"]
             elif isinstance(t["type"], list):
-                _type = self.J2P_TYPES[t["type"][0]]
+                model = self.J2P_TYPES[t["type"][0]].__class__(name=name, parent=parent)
             elif t["type"]:
-                _type = self.J2P_TYPES[t["type"]]
+                model = self.J2P_TYPES[t["type"]].__class__(name=name, parent=parent)
                 if (
-                    _type == str
+                    isinstance(model, StringNode)
                     and "media" in t
                     and "binaryEncoding" in t["media"]
                     and t["media"]["binaryEncoding"] == "base64"
                 ):
-                    _type = bytes
+                    model.specific_type = bytes
         elif "$ref" in t:
-            _type = t["$ref"].split("/")[-1]
+            model = ReferenceNode(
+                value=self.ref_lookup(t["$ref"]), name=name, parent=parent
+            )
         elif "anyOf" in t or "allOf" in t or "oneOf" in t:
-            _type = list
-        return {"type": _type, "subtype": _subtype}
+            model = ListNode(name=name, parent=parent, item_type=ObjectNode())
+        self.attach_extra_bits(t, model)
+        return model
 
     def write_file(self, filename):
-        template = self.custom_template or self.TEMPLATES[self.language]
+        template = self.custom_template or self.module.template()
         self.jinja.get_template(template).stream(
             models=self.definitions,
-            use_types=self.use_types,
-            constructor_type_check=self.constructor_type_check,
             enum_used=self.enum_used,
             list_used=self.list_used,
-            use_slots=self.use_slots,
-            namespace_path=self.namespace_path,
-            package_name=self.package_name,
+            **self.module.extra_jinja_inputs()
         ).dump(filename)
         if hasattr(filename, "close"):
             filename.close()
 
-    def get_prop_name(self, name):
+    def maybe_translate_property_name(self, name):
         if not self.translate_properties:
             return name
         s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
         return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
-    def strip_sub_prefix(self, name):
-        if self.translate_properties:
-            return name
-        return name.lstrip("_")
+    def after_generation(self, filename=None):
+        self.module.after_generation(filename=filename)
+
+    def update_args(self, args):
+        self.module.set_args(args)
 
 
 def init_parser():
@@ -419,16 +440,6 @@ def init_parser():
         help="Path to custom Jinja template file",
         default="",
     )
-    parser.add_argument("-t", "--use-types", action="store_true", help="Add typings")
-    parser.add_argument(
-        "-ct",
-        "--constructor-type-check",
-        action="store_true",
-        help="Validate input types in constructor",
-    )
-    parser.add_argument(
-        "-s", "--use_slots", action="store_true", help="Generate class with __slots__."
-    )
     parser.add_argument(
         "--no-generate-from-definitions",
         action="store_false",
@@ -450,89 +461,60 @@ def init_parser():
     parser.add_argument(
         "-l",
         "--language",
-        choices=JsonSchema2Popo.TEMPLATES.keys(),
-        help="Which language to generate in",
+        help="Which language to generate in. Use python, js, go, or enter in a Python module name to use a plugin",
         default="python",
     )
     parser.add_argument(
-        "--namespace-path",
-        help="Namespace path to be prepended to the @memberOf for JSDoc (only used for JS)",
-    )
-    parser.add_argument(
-        "--package-name",
-        help="Package name for generated code (only used for Go)",
-        default="generated",
-    )
-    parser.add_argument(
-        "--version", action="version", version="%(prog)s v{}".format(__version__)
+        "--version",
+        action="version",
+        version="JSONSchema2PoPo2 v{}".format(__version__),
     )
     return parser
 
 
-def format_python_file(filename):
-    try:
-        import black
-
-        black.format_file_in_place(
-            pathlib.Path(filename).absolute(),
-            fast=True,
-            mode=black.FileMode(
-                line_length=88, target_versions={black.TargetVersion.PY33}
-            ),
-            write_back=black.WriteBack.YES,
-        )
-    except:
-        pass
-
-
-def format_js_file(filename):
-    try:
-        import jsbeautifier
-
-        format_opts = jsbeautifier.default_options()
-        format_opts.end_with_newline = True
-        format_opts.preserve_newlines = True
-        format_opts.max_preserve_newlines = 2
-        format_opts.wrap_line_length = 120
-
-        with open(filename, "r") as fr:
-            file = fr.read()
-            with open(filename, "w") as f:
-                f.write(jsbeautifier.beautify(file, opts=format_opts))
-    except:
-        pass
-
-
-def format_go_file(filename):
-    os.system("go fmt " + filename)
-
-
 def main():
     parser = init_parser()
-    args = parser.parse_args()
+    rewritten_args = sys.argv.copy()
+
+    def remove_if_present(l, to_remove):
+        try:
+            l.remove(to_remove)
+        except ValueError:
+            pass
+
+    # If a language option is chosen, then remove any option which should be handled by the subparser instead
+    if "-l" in rewritten_args or "--language" in rewritten_args:
+        remove_if_present(rewritten_args, "--version")
+        remove_if_present(rewritten_args, "-h")
+        remove_if_present(rewritten_args, "--help")
+
+    args = parser.parse_known_args(args=rewritten_args)[0]
 
     loader = JsonSchema2Popo(
-        use_types=args.use_types,
-        constructor_type_check=args.constructor_type_check,
-        use_slots=args.use_slots,
         generate_definitions=args.no_generate_from_definitions,
         generate_root=args.no_generate_from_root_object,
         translate_properties=args.translate_properties,
         language=args.language,
-        namespace_path=args.namespace_path,
-        package_name=args.package_name,
         custom_template=args.custom_template,
     )
+    loader.module.command_line_parser(
+        sub_parser=parser.add_argument_group(loader.module.plugin_name())
+    )
+    # Update version action to output the plugin's version (if there is a plugin)
+    for action in parser._actions:
+        if isinstance(action, argparse._VersionAction):
+            action.version = action.version + " with {} plugin v{}".format(
+                loader.module.plugin_name(), loader.module.plugin_version()
+            )
+            break
+
+    args = parser.parse_args()
+    loader.update_args(args)
     loader.load(args.json_schema_file)
 
     outfile = args.output_file
     loader.write_file(outfile)
-    if args.language == "python":
-        format_python_file(outfile.name)
-    elif args.language == "js":
-        format_js_file(outfile.name)
-    elif args.language == "go":
-        format_go_file(outfile.name)
+    loader.after_generation(filename=outfile.name)
 
 
 if __name__ == "__main__":
