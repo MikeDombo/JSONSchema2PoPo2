@@ -37,18 +37,19 @@ jsonschema2popo2 -o /path/to/output_file.py /path/to/json_schema.json
 ### Options:
 
 - -o, --output-file - Generated file path.
-- -jt, --custom-template - Path to custom Jinja template file (relative to CWD)
-- -t, --use-types - Add MyPy typings.
+- -jt, --custom-template - Path to custom Jinja template file (relative to CWD).
+- -t, --use-types - Add MyPy typings. (Python only)
 - -ct, --constructor-type-check - Validate provided types in constructor. Default only type checks when setting property
-  values and not when setting them in the constructor.
-- -s, --use-slots - Add a `__slots__` to each generated class to be more memory efficient.
+  values and not when setting them in the constructor. (Python and JavaScript only)
+- -s, --use-slots - Add a `__slots__` to each generated class to be more memory efficient. (Python only)
 - --no-generate-from-definitions - Don't generate any classes from the "definitions" section of the schema.
 - --no-generate-from-root-object - Don't generate any classes from the root of the schema.
 - -tp, --translate-properties - Translate property names to be snake_case. With this enabled, inner classes will no
   longer be prefixed by "_" since their names won't collide with the property name.
-- -l, --language - Language to generate in. Either "js" or "python".
-- --namespace-path - Namespace path to be prepended to the @memberOf for JSDoc (only used for JS)
-- --package-name - Package name for generated code (only used for Go). Default is "generated".
+- -l, --language - Language to generate in. Choose "python", "js", "go", a python file, or a python module. When 
+  using a python file or module, the module must expose `Plugin` as a class which extends and implements `CodeGenPlugin`.
+- --namespace-path - Namespace path to be prepended to the @memberOf for JSDoc. (JavaScript only)
+- --package-name - Package name for generated code. Default is "generated". (Go only)
 - --version - Show the current version number.
 
 ### Encode Generated Object to JSON:
@@ -162,3 +163,19 @@ generated code. For example, in the example above, the enum will have a docstrin
 You can also choose to add documentation for yourself in the schema document using the `"$comment"` key, which is simply
 ignored by this tool. In this way, you can have public documentation in the `description`, and anything you want to keep
 private can go in the `$comment`.
+
+### Customizing Generated Code
+
+There are two ways to customize the output code which this project generates: you may use your own code generation 
+template, or you may implement a code generation plugin _and_ code generation template. I would suggest that you go 
+the whole way to implementing a code generation plugin since it isn't much additional work and can give you great 
+benefits.
+
+#### Example Code Generation Plugin
+
+Take as an example our 
+[builtin Go plugin](https://github.com/MikeDombo/JSONSchema2PoPo2/blob/468ea0881557dd98c831cae173f0bcd2ea73ac72/jsonschema2popo/go/go.py).
+This plugin is simply a single Python file along with a template file. The Python code implements the 
+`CodeGenPlugin` interface which allows it to add more arguments to the command line options and then make those new 
+values available to the template file. The plugin can also provide more functions to be called from the Jinja 
+template which makes developing a template far simpler.

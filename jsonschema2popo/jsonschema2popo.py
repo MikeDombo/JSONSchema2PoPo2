@@ -475,6 +475,7 @@ def init_parser():
 def main():
     parser = init_parser()
     rewritten_args = sys.argv.copy()
+    rewritten_args.pop(0)  # Remove script path from args which argparse doesn't handle
 
     def remove_if_present(l, to_remove):
         try:
