@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0
+
+- Fixed bug where types without properties could not be referenced
+- Fixed bug when referencing an Enum type prior to us parsing it
+
 ## 3.0.0rc2
 
 - Fixed command line usage

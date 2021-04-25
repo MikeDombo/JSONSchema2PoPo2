@@ -184,7 +184,9 @@ class JsonSchema2Popo:
     def attach_extra_bits(self, _obj, model: Definition):
         if "$ref" in _obj:
             self.attach_ref_value(_obj["$ref"], model)
-        if model.full_name_path in self.searching_for_references:
+        if (
+            not isinstance(model, ReferenceNode) or model.value is not None
+        ) and model.full_name_path in self.searching_for_references:
             for m in self.searching_for_references[model.full_name_path]:
                 m.value = model
             del self.searching_for_references[model.full_name_path]
@@ -256,6 +258,8 @@ class JsonSchema2Popo:
             if model is None:
                 model = self.type_parser(_obj, name=_obj_name, parent=parent)
         else:
+            if model is not None:
+                self.attach_extra_bits(_obj, model)
             return model
 
         if "extends" in _obj and "$ref" in _obj["extends"]:
@@ -391,7 +395,10 @@ class JsonSchema2Popo:
             )
         elif "anyOf" in t or "allOf" in t or "oneOf" in t:
             model = ListNode(name=name, parent=parent, item_type=ObjectNode())
-        self.attach_extra_bits(t, model)
+        # Do not attach extra bits to enum's inner types, otherwise any references to the enum could instead end up
+        # with a reference to the inner type
+        if "enum" not in t:
+            self.attach_extra_bits(t, model)
         return model
 
     def write_file(self, filename):
