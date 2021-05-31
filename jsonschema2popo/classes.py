@@ -8,6 +8,9 @@ extra_generation_options = dict()
 def translate_properties():
     return extra_generation_options.get("translate_properties", False)
 
+def translate_name(name):
+    return extra_generation_options.get("translate_name_func", lambda x: x)(name)
+
 
 class Definition:
     name: str
@@ -58,9 +61,11 @@ class Definition:
         # because the subtype's name shouldn't be conflicting with the property of the parent class
         # since we've translated the name. There is some possibility of conflicts when the property name is a single
         # word, in which case this would output broken code. Keeping it this way for compatibility with 2.x.x.
+        name = translate_name(self.name)
         if self.parent is not None and not translate_properties():
-            return "_" + self.name
-        return self.name
+            return "_" + name
+        
+        return name
 
     @staticmethod
     def lowest_common_ancestor(a: "Definition", b: "Definition") -> "Definition":
