@@ -167,6 +167,13 @@ f.test_jsonschema2popo_test_bytes_type = (filename) => {
     new foo.B(Buffer.alloc(1024));
 }
 
+f.test_jsonschema2popo_test_special_character = (filename) => {
+    const foo = require("./" + filename);
+    const testB = foo.B.fromMap({"test-hyphen": "1", "test.dot": "2"});
+    assertEquals(testB.test_hyphen, "1");
+    assertEquals(testB.test_dot, "2");
+}
+
 const functionName = args[0].replace(/\./g, "_");
 if (functionName in f) {
     f[functionName](...args.slice(1))

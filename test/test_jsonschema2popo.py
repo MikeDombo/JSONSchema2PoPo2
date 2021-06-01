@@ -61,6 +61,7 @@ class JsonSchema2Popo(unittest.TestCase):
             os.remove(self.test_file)
             os.remove(self.test_file_js)
             os.remove(self.test_file_go)
+            pass
 
     def setUp(self):
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -504,6 +505,29 @@ class JsonSchema2Popo(unittest.TestCase):
 
         foo = self.import_test_file()
         foo.B(prop1=bytes(100 for _ in range(1024)))
+
+    def test_special_character(self):
+        self.generate_files(
+            """{
+    "definitions": {
+        "B": {
+            "type": "object",
+            "properties": {
+                "test-hyphen": {
+                    "type": "string"
+                },
+                "test.dot": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}"""
+        )
+        foo = self.import_test_file()
+        B = foo.B.from_dict({"test-hyphen": "1", "test.dot": "2"})
+        assert B.test_hyphen == "1"
+        assert B.test_dot == "2"
 
 
 if __name__ == "__main__":
