@@ -8,6 +8,7 @@ extra_generation_options = dict()
 def translate_properties():
     return extra_generation_options.get("translate_properties", False)
 
+
 def translate_name(name):
     return extra_generation_options.get("translate_name_func", lambda x: x)(name)
 
@@ -64,7 +65,7 @@ class Definition:
         name = translate_name(self.name)
         if self.parent is not None and not translate_properties():
             return "_" + name
-        
+
         return name
 
     @staticmethod

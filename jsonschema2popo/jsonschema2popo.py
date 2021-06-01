@@ -114,9 +114,11 @@ class JsonSchema2Popo:
 
         self.definitions: List[Definition] = []
         self.searching_for_references: Dict[str, Set[ReferenceNode]] = defaultdict(set)
-        
+
         extra_generation_options["translate_properties"] = self.translate_properties
-        extra_generation_options["translate_name_func"] = self.maybe_translate_property_name
+        extra_generation_options[
+            "translate_name_func"
+        ] = self.maybe_translate_property_name
 
     def load(self, json_schema_file):
         self.process(json.load(json_schema_file))
@@ -414,7 +416,7 @@ class JsonSchema2Popo:
             filename.close()
 
     def maybe_translate_property_name(self, name):
-        name = name.replace('-', '_').replace('.', '_')
+        name = name.replace("-", "_").replace(".", "_")
         if not self.translate_properties:
             return name
         s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
