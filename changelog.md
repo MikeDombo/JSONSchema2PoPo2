@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.1
+
+- Rename any usage of `.` or `-` in a JSON property since no programming language can handle those characters in identifiers. Contributed by
+  [@NyaMisty](https://github.com/NyaMisty)
+
 ## 3.0.0
 
 - Fixed bug where types without properties could not be referenced
