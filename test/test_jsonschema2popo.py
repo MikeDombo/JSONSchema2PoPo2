@@ -529,6 +529,32 @@ class JsonSchema2Popo(unittest.TestCase):
         assert B.test_hyphen == "1"
         assert B.test_dot == "2"
 
+    def test_nested_enum(self):
+        self.generate_files(
+            """
+{
+  "title": "Test",
+  "type": "object",
+  "properties": {
+    "prop1": {
+      "type": "string"
+    },
+    "prop2": {
+      "description": "My favorite Enum!",
+      "type": "string",
+      "enum": [
+        "First",
+        "Second",
+        "Third"
+      ]
+    }
+  }
+}
+"""
+        )
+        test = self.import_test_file().Test
+        assert test("a", test._prop2.First).prop2 == test._prop2.First
+
 
 if __name__ == "__main__":
     unittest.main()
