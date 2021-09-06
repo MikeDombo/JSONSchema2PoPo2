@@ -174,6 +174,11 @@ f.test_jsonschema2popo_test_special_character = (filename) => {
     assertEquals(testB.test_dot, "2");
 }
 
+f.test_jsonschema2popo_test_nested_enum = (filename) => {
+    const test = require("./" + filename).Test;
+    assertEquals(new test("a", test._prop2.First).prop2, test._prop2.First);
+}
+
 const functionName = args[0].replace(/\./g, "_");
 if (functionName in f) {
     f[functionName](...args.slice(1))
