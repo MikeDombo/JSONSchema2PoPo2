@@ -114,7 +114,9 @@ class JsonSchema2Popo:
 
         self.definitions: List[Definition] = []
         self.searching_for_references: Dict[str, Set[ReferenceNode]] = defaultdict(set)
+        self.__update_self()
 
+    def __update_self(self):
         extra_generation_options["translate_properties"] = self.translate_properties
         extra_generation_options[
             "translate_name_func"
@@ -426,6 +428,13 @@ class JsonSchema2Popo:
         self.module.after_generation(filename=filename)
 
     def update_args(self, args):
+        if "no_generate_from_definitions" in args:
+            self.generate_definitions = args.no_generate_from_definitions
+        if "no_generate_from_root_object" in args:
+            self.generate_root = args.no_generate_from_root_object
+        if "translate_properties" in args:
+            self.translate_properties = args.translate_properties
+        self.__update_self()
         self.module.set_args(args)
 
 
@@ -503,9 +512,6 @@ def main():
     args = parser.parse_known_args(args=rewritten_args)[0]
 
     loader = JsonSchema2Popo(
-        generate_definitions=args.no_generate_from_definitions,
-        generate_root=args.no_generate_from_root_object,
-        translate_properties=args.translate_properties,
         language=args.language,
         custom_template=args.custom_template,
     )
