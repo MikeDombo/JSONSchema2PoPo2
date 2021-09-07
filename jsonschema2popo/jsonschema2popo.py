@@ -118,9 +118,7 @@ class JsonSchema2Popo:
 
     def __update_self(self):
         extra_generation_options["translate_properties"] = self.translate_properties
-        extra_generation_options[
-            "translate_name_func"
-        ] = self.maybe_translate_property_name
+        extra_generation_options["translate_name_func"] = self.translate_type_name
 
     def load(self, json_schema_file):
         self.process(json.load(json_schema_file))
@@ -423,6 +421,10 @@ class JsonSchema2Popo:
             return name
         s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
         return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+
+    def translate_type_name(self, name):
+        name = name.replace("-", "_").replace(".", "_")
+        return name
 
     def after_generation(self, filename=None):
         self.module.after_generation(filename=filename)
