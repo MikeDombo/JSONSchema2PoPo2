@@ -93,11 +93,14 @@ class JsonSchema2Popo(unittest.TestCase):
         """
         messages = []
 
-        def flush_errors(new_messages, serious):
-            messages.extend(new_messages)
+        def flush_errors(*args):
+            # mypy >= 0.990 passes (filename, new_messages, serious); older passes (new_messages, serious)
+            messages.extend(args[-2])
 
         options = mypy.main.Options()
         options.allow_untyped_globals = True
+        # Generated constructors use `x: T = None`; newer mypy rejects that by default
+        options.implicit_optional = True
         mypy.main.build.build(
             [mypy.main.BuildSource(path=self.test_file, module="")],
             options,
@@ -161,8 +164,7 @@ class JsonSchema2Popo(unittest.TestCase):
         Go.format_go_file(self.test_file_go)
 
     def test_root_basic_generation(self):
-        self.generate_files(
-            """{
+        self.generate_files("""{
             "title": "ABcd",
             "type": "object",
             "properties": {
@@ -189,8 +191,7 @@ class JsonSchema2Popo(unittest.TestCase):
                     "enum": ["A", "b", "c"]
                 }
             }
-        }"""
-        )
+        }""")
 
         foo = self.import_test_file()
 
@@ -239,13 +240,11 @@ class JsonSchema2Popo(unittest.TestCase):
         )
 
     def test_root_string_enum(self):
-        self.generate_files(
-            """{
+        self.generate_files("""{
             "title": "ABcd",
             "type": "string",
             "enum": ["A", "B", "C"]
-        }"""
-        )
+        }""")
 
         foo = self.import_test_file()
         self.assertIsInstance(foo.Abcd.A, foo.Abcd)
@@ -254,14 +253,12 @@ class JsonSchema2Popo(unittest.TestCase):
         self.assertEqual(foo.Abcd.C.value, "C")
 
     def test_root_integer_enum(self):
-        self.generate_files(
-            """{
+        self.generate_files("""{
             "title": "ABcd",
             "type": "integer",
             "enum": [0, 1, 2, 99],
             "javaEnumNames": ["A", "B", "C", "D"]
-        }"""
-        )
+        }""")
 
         foo = self.import_test_file()
         self.assertIsInstance(foo.Abcd.A, foo.Abcd)
@@ -271,8 +268,7 @@ class JsonSchema2Popo(unittest.TestCase):
         self.assertEqual(foo.Abcd.D.value, 99)
 
     def test_root_nested_objects(self):
-        self.generate_files(
-            """{
+        self.generate_files("""{
             "title": "ABcd",
             "type": "object",
             "properties": {
@@ -299,8 +295,7 @@ class JsonSchema2Popo(unittest.TestCase):
                     }
                 }
             }
-        }"""
-        )
+        }""")
 
         foo = self.import_test_file()
         foo.Abcd(foo.Abcd._Child1(0, foo.Abcd._Child1._Child2(0, ["0"])))
@@ -331,8 +326,7 @@ class JsonSchema2Popo(unittest.TestCase):
         foo.RootObject()
 
     def test_definitions_with_refs(self):
-        self.generate_files(
-            """{
+        self.generate_files("""{
             "definitions": {
                 "ABcd": {
                     "type": "object",
@@ -357,8 +351,7 @@ class JsonSchema2Popo(unittest.TestCase):
                     "$ref": "#/definitions/ABcd"
                 }
             }
-        }"""
-        )
+        }""")
 
         foo = self.import_test_file()
         foo.ABcd(Child1=0, Child2="2")
@@ -367,8 +360,7 @@ class JsonSchema2Popo(unittest.TestCase):
         assert isinstance(foo.DirectRef.from_dict({}), foo.DirectRef)
 
     def test_definitions_with_nested_refs(self):
-        self.generate_files(
-            """{
+        self.generate_files("""{
             "definitions": {
                 "ABcd": {
                     "type": "object",
@@ -412,8 +404,7 @@ class JsonSchema2Popo(unittest.TestCase):
                     }
                 }
             }
-        }"""
-        )
+        }""")
 
         foo = self.import_test_file()
         foo.ABcd(
@@ -425,8 +416,7 @@ class JsonSchema2Popo(unittest.TestCase):
         foo.AAAA(X=0, YRef=foo.ABcd._Child1._Child2(IntVal=0, ListVal=["1"]))
 
     def test_list_definitions_with_nested_object(self):
-        self.generate_files(
-            """{
+        self.generate_files("""{
     "definitions": {
         "A": {
             "type": "object",
@@ -448,15 +438,13 @@ class JsonSchema2Popo(unittest.TestCase):
             }
         }
     }
-}"""
-        )
+}""")
 
         foo = self.import_test_file()
         foo.A(sub1=[foo.A._sub1(prop1=0, prop2=1.2)])
 
     def test_list_definitions_with_ref(self):
-        self.generate_files(
-            """{
+        self.generate_files("""{
     "definitions": {
         "A": {
             "type": "object",
@@ -478,15 +466,13 @@ class JsonSchema2Popo(unittest.TestCase):
             }
         }
     }
-}"""
-        )
+}""")
 
         foo = self.import_test_file()
         foo.A(prop1=[foo.B(prop1=0)])
 
     def test_bytes_type(self):
-        self.generate_files(
-            """{
+        self.generate_files("""{
     "definitions": {
         "B": {
             "type": "object",
@@ -500,15 +486,13 @@ class JsonSchema2Popo(unittest.TestCase):
             }
         }
     }
-}"""
-        )
+}""")
 
         foo = self.import_test_file()
         foo.B(prop1=bytes(100 for _ in range(1024)))
 
     def test_special_character(self):
-        self.generate_files(
-            """{
+        self.generate_files("""{
     "definitions": {
         "B": {
             "type": "object",
@@ -522,16 +506,14 @@ class JsonSchema2Popo(unittest.TestCase):
             }
         }
     }
-}"""
-        )
+}""")
         foo = self.import_test_file()
         B = foo.B.from_dict({"test-hyphen": "1", "test.dot": "2"})
         assert B.test_hyphen == "1"
         assert B.test_dot == "2"
 
     def test_nested_enum(self):
-        self.generate_files(
-            """
+        self.generate_files("""
 {
   "title": "Test",
   "type": "object",
@@ -550,8 +532,7 @@ class JsonSchema2Popo(unittest.TestCase):
     }
   }
 }
-"""
-        )
+""")
         test = self.import_test_file().Test
         assert test("a", test._prop2.First).prop2 == test._prop2.First
 
