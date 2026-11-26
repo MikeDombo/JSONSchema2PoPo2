@@ -4,7 +4,7 @@ import pathlib
 from typing import Union, Dict, Callable, Any
 
 from jsonschema2popo import version
-from jsonschema2popo.classes import Definition, ListNode, CodeGenPlugin
+from jsonschema2popo.classes import Definition, ListNode, CodeGenPlugin, is_identifier
 from jsonschema2popo.jsonschema2popo import string_to_type
 
 
@@ -45,6 +45,9 @@ class Python(CodeGenPlugin):
             "constructor_type_check": self.constructor_type_check,
             "use_types": self.use_types,
         }
+
+    def is_valid_identifier(self, name: str, enum_member: bool = False) -> bool:
+        return is_identifier(name)
 
     def template(self) -> str:
         return "python_class.tmpl"

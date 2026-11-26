@@ -1,9 +1,16 @@
 import argparse
 import os
+import re
 from typing import Union, Dict, Callable, Any
 
 from jsonschema2popo import version
-from jsonschema2popo.classes import Definition, ListNode, ReferenceNode, CodeGenPlugin
+from jsonschema2popo.classes import (
+    Definition,
+    ListNode,
+    ReferenceNode,
+    CodeGenPlugin,
+    is_identifier,
+)
 from jsonschema2popo.jsonschema2popo import string_to_type
 from jsonschema2popo.python.python import Python
 
@@ -41,6 +48,12 @@ class JS(CodeGenPlugin):
 
     def template(self) -> str:
         return "js_class.tmpl"
+
+    def is_valid_identifier(self, name: str, enum_member: bool = False) -> bool:
+        # JS identifiers may contain '$', and enum member names are object keys, which may also be numbers
+        if enum_member and re.fullmatch(r"\d+(\.\d*)?([eE][+-]?\d+)?", name):
+            return True
+        return is_identifier(name.replace("$", "_"))
 
     def jinja_globals(self) -> Dict[str, Callable]:
         return {"jsdoc_type": self.jsdoc_type, "python_type": Python.python_type}

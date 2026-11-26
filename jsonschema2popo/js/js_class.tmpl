@@ -5,7 +5,7 @@
  or prop.definition, relative_to=relativeTo, with_namespace=withNamespace)) }}{% if get_type(prop, sub=False, module=True) == "Array" %}[]{% endif %}{% raw %}}{% endraw %}
 {%- endmacro -%}
 {% macro jsdoc_param(name, prop) %}
-@param {{ name }} {{ jsdoc_typ(prop, withNamespace=True) }} {% if prop.comment %}{{ prop.comment | indent(7) }}{% endif %}
+@param {{ name }} {{ jsdoc_typ(prop, withNamespace=True) }} {% if prop.comment %}{{ prop.comment | block_comment | indent(7) }}{% endif %}
 {% endmacro %}
 {%- macro translate_type(type, module=False) -%}
 {%- if type is none -%}
@@ -39,18 +39,6 @@ typeof {{ var }} === "number"
 {%- endif -%}
 {%- endmacro -%}
 
-{% macro translate_bool(bool) %}
-{% if bool is sameas True %}
-true
-{% elif bool is sameas False %}
-false
-{% elif bool is none %}
-null
-{% else %}
-{{ bool }}
-{% endif %}
-{% endmacro %}
-
 {% macro get_type(prop, relativeTo=None, sub=True, module=False) -%}{{ translate_type(python_type(sub and prop.definition|attr("item_type") or prop.definition or None, relative_to=relativeTo))-}}{%-
 endmacro -%}
 {% macro type_check(prop, name=None, relativeTo=None) %}
@@ -68,7 +56,7 @@ if ({{ name or trn(prop.name) }} !== null && !{{ name or trn(prop.name) }}.every
 
 {%- macro generate_class(model) -%}
 /**
- * {% if model.comment %}{{ model.comment | indent(3) }}{% endif %}
+ * {% if model.comment %}{{ model.comment | block_comment | indent(3) }}{% endif %}
 
  *
  * @class
@@ -88,7 +76,7 @@ class {{model.python_type_name}}{% if model.extends %} extends {{ model.extends 
      */
     constructor(
 {% for prop in model.properties %}
-            {{trn(prop.name)}}={{translate_bool(prop.default)}},
+            {{trn(prop.name)}}={% if prop.definition.string_type == "string" and prop.default is not none %}{{ prop.default | json_literal }}{% else %}{{ prop.default | json_value }}{% endif %},
 {% endfor %}
 {% if model.extends %}
             ...superArgs
@@ -118,7 +106,7 @@ class {{model.python_type_name}}{% if model.extends %} extends {{ model.extends 
 
 {% for prop in model.properties %}
     /**
-{% if prop.comment %}     * {{ prop.comment | indent(7) }}
+{% if prop.comment %}     * {{ prop.comment | block_comment | indent(7) }}
 {% endif %}
      * @returns {{ jsdoc_typ(prop, relativeTo=None, withNamespace=True) }}
 
@@ -190,14 +178,14 @@ class {{model.python_type_name}}{% if model.extends %} extends {{ model.extends 
 Object.defineProperty({{ model.full_name_python_path() }}, "options", {
     value: {
 {% for name, value in model.values.items() %}
-    {{ name }}: {% if model.value_type.type == "string" %}"{{value}}"{% else %}{{value}}{% endif %},
+    {{ name }}: {% if model.value_type.type == "string" %}{{ value | json_quote('"') }}{% else %}{{ value | json_value }}{% endif %},
 {% endfor %}
     }
 });
 Object.defineProperty({{ model.full_name_python_path() }}, "optionsFlipped", {
     value: {
 {% for name, value in model.values.items() %}
-    {% if model.value_type.type == "string" %}"{{value}}"{% else %}{{value}}{% endif %}: "{{ name }}",
+    {% if model.value_type.type == "string" %}{{ value | json_quote('"') }}{% else %}{{ value | json_value }}{% endif %}: "{{ name }}",
 {% endfor %}
     }
 });
@@ -209,7 +197,7 @@ Object.defineProperty({{ model.full_name_python_path() }}, "optionsFlipped", {
  * @readonly
  */
 Object.defineProperty({{ model.full_name_python_path() }}, "{{ name }}", {
-    value: new {{ model.full_name_python_path() }}({% if model.value_type.type == "string" %}"{{value}}"{% else %}{{value}}{% endif %})
+    value: new {{ model.full_name_python_path() }}({% if model.value_type.type == "string" %}{{ value | json_quote('"') }}{% else %}{{ value | json_value }}{% endif %})
 });
 {% endfor %}
 {% endif %}
@@ -233,14 +221,14 @@ Object.defineProperty({{ model.full_name_python_path() }}, "typesMap", {
 Object.defineProperty({{ model.full_name_python_path() }}, "formatsMap", {
     value: {
 {% for prop in model.properties if prop.format %}
-        {{trn(prop.name)}}: '{{prop.format}}',
+        {{trn(prop.name)}}: {{ prop.format | json_quote("'") }},
 {% endfor %}
     }
 });
 Object.defineProperty({{ model.full_name_python_path() }}, "validationsMap", {
     value: {
 {% for prop in model.properties if prop.validations %}
-        '{{ trn(prop.name) }}': { {% for type, value in prop.validations.items() %}'{{ type }}': {% if type == "pattern" %}/{{ value }}/{% else %}{{ translate_bool(value) }}{% endif %},{% endfor %}},
+        '{{ trn(prop.name) }}': { {% for type, value in prop.validations.items() %}'{{ type }}': {% if type == "pattern" %}{{ value | js_regex }}{% else %}{{ value | json_value }}{% endif %},{% endfor %}},
 {% endfor %}
     }
 });
@@ -258,7 +246,7 @@ Object.defineProperty({{ model.full_name_python_path() }}, "validationsMap", {
  * @type {% raw %}{{{% endraw %}
 
 {% for model in models %}
-{{model.name}}: {{model.name}}{% if not loop.last %},
+{{model.python_type_name}}: {{model.python_type_name}}{% if not loop.last %},
 {% endif %}{% endfor %}
 
 {% raw %}}}{% endraw %}
@@ -266,6 +254,6 @@ Object.defineProperty({{ model.full_name_python_path() }}, "validationsMap", {
  */
 module.exports = {
 {%- for model in models %}
-    {{model.name}},
+    {{model.python_type_name}},
 {% endfor %}
 };

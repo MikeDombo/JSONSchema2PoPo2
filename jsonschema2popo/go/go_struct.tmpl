@@ -5,7 +5,7 @@
 {{ (model.full_name_python_path()) | replace(".", "")}}
 {%- endmacro -%}
 {% macro translate_bool(bool) %}{% if bool is sameas True %}true{% elif bool is sameas False %}false{% elif bool is none
- %}nil{% elif bool is number %}int64({{bool}}){% else %}{{ bool }}{% endif %}{% endmacro %}
+ %}nil{% elif bool is number %}int64({{bool}}){% else %}{{ bool | json_value }}{% endif %}{% endmacro %}
 
 {%- macro translate_type(prop) -%}
 {% if prop is string %}
@@ -44,13 +44,13 @@ package {{package_name}}
 {% if not model.type == "enum" %}
 var {{go_name(model)}}Formats = map[string]string {
 {% for prop in model.properties if prop.format %}
-    "{{trn(prop.name)}}": "{{prop.format}}",
+    "{{trn(prop.name)}}": {{ prop.format | json_quote('"', 'go') }},
 {% endfor %}
 }
 var {{go_name(model)}}Validations = map[string]map[string]interface{} {
 {% for prop in model.properties if prop.validations %}
     "{{ trn(prop.name) }}": { {% for type, value in prop.validations.items() %}"{{ type }}": {% if type ==
-     "pattern" %}"{{ value | replace ("\\", "\\\\") | replace("\"", "\\\"")}}"{% else %}{{ translate_bool(value) }}{%endif%},{% endfor %}},
+     "pattern" %}{{ value | string | json_literal }}{% else %}{{ translate_bool(value) }}{%endif%},{% endfor %}},
 {% endfor %}
 }
 
@@ -83,7 +83,7 @@ var {{ go_name(model) }}Options = struct{
     {% endfor %}
 }{
 {% for name, value in model.values.items() %}
-    {{name}}: {% if model.value_type.type == "string" %}"{{value}}"{% else %}{{value}}{% endif %},
+    {{name}}: {% if model.value_type.type == "string" %}{{ value | json_quote('"', 'go') }}{% else %}{{ value | json_value }}{% endif %},
 
 {% endfor %}
 
