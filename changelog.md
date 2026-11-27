@@ -1,5 +1,35 @@
 # Changelog
 
+## 3.1.0
+
+- Fix [#24](https://github.com/MikeDombo/JSONSchema2PoPo2/issues/24): values from the schema (defaults, `format`,
+  `pattern`, validations, enum values and descriptions) are no longer pasted into the generated Python, JavaScript and
+  Go code unescaped, so they can't break out of a string literal or comment, or run as code. Output for valid schemas
+  is otherwise unchanged.
+- Names that the built-in generators emit as identifiers (types, properties and enum members) must now be valid
+  identifiers in the target language. Otherwise generation stops with a clear error instead of writing broken code.
+  Custom templates (`-jt`) and plugins are not checked.
+
+### Behavior changes
+
+- JavaScript: a string default on a `"type": "string"` property is now always emitted as a string. Previously it was
+  pasted in as code, so `"default": "5"` became the number `5`, `"null"` became `null`, and `"pending"` threw a
+  `ReferenceError` when the object was constructed.
+- Where values used to be pasted in as code (defaults of non-string properties, validations such as `maximum`, and
+  values of non-string enums), a string that is not a number or a plain name (such as `True` or `Color.RED`) is now
+  emitted as a string.
+
+## 3.0.3
+
+- Type names are no longer lowercased when `-tp`/`--translate-properties` is on. Only property names are translated;
+  type names just have `.` and `-` replaced with `_`
+  ([#21](https://github.com/MikeDombo/JSONSchema2PoPo2/pull/21))
+
+## 3.0.2
+
+- Fixed command line parsing so that `-tp`/`--translate-properties` is not forced on
+  ([#20](https://github.com/MikeDombo/JSONSchema2PoPo2/pull/20))
+
 ## 3.0.1
 
 - Rename any usage of `.` or `-` in a JSON property since no programming language can handle those characters in identifiers. Contributed by
@@ -97,6 +127,11 @@ The generated code is supposed to be entirely unchanged. Please open an issue if
 - Bugfix for `as_dict` and `from_dict` when translating property names so that the output dictionary has the original
   property names for `as_dict` and using original property names from the input dictionary for `from_dict`
 
+## 2.0.14
+
+- `as_dict` and `from_dict` use the original property names from the schema when property names are translated
+  (completed in 2.0.15)
+
 ## 2.0.13
 
 - Add option to translate property names into snake_case which is more Pythonic
@@ -136,6 +171,15 @@ The generated code is supposed to be entirely unchanged. Please open an issue if
 ## 2.0.5
 
 - Added comments to classes and properties based on the `description` field of the schema
+
+## 2.0.4
+
+- Removed type checks from `from_dict`
+- Properties with `media.binaryEncoding: "base64"` now use `bytes` instead of `bytearray`
+
+## 2.0.3
+
+- Fixed detection of `media.binaryEncoding: "base64"`, which was looked up in the wrong place in the schema
 
 ## 2.0.2
 

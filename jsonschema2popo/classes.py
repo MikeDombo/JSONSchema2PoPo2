@@ -1,8 +1,14 @@
 import abc
 import argparse
+import re
 from typing import Dict, Any, List, Set, Optional, Callable, Type
 
 extra_generation_options = dict()
+
+
+def is_identifier(name: str) -> bool:
+    """Unicode letters, digits and '_', not starting with a digit. Never matches quotes, operators or whitespace."""
+    return name.isidentifier() or re.fullmatch(r"[^\W\d]\w*", name) is not None
 
 
 def translate_properties():
@@ -310,6 +316,13 @@ class CodeGenPlugin(abc.ABC):
 
     def extra_jinja_inputs(self) -> Dict[str, Any]:
         return {}
+
+    def is_valid_identifier(self, name: str, enum_member: bool = False) -> bool:
+        """
+        Whether a name from the schema can be emitted as an identifier by this plugin's template. Plugins that
+        emit names as identifiers should reject anything that could end one (quotes, operators, whitespace...).
+        """
+        return True
 
     def after_generation(self, filename: Optional[str] = None) -> None:
         pass

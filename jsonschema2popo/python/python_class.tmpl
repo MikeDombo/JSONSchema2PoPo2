@@ -25,7 +25,7 @@ from typing import List
 class {{model.python_type_name}}{% if model.type == "enum" %}(enum.Enum){% endif %}{% if model.extends %}({{ model.extends.full_name_python_path()}}){% endif %}:
 {% if model.comment %}
     """
-    {{ model.comment | indent(4) }}
+    {{ model.comment | py_docstring | indent(4) }}
     """
 {% endif %}
 {% for child in model.children %}
@@ -38,7 +38,7 @@ class {{model.python_type_name}}{% if model.type == "enum" %}(enum.Enum){% endif
 
 {% if model.type == "enum" %}
 {% for name, value in model.values.items() %}
-    {{name}} = {% if model.value_type.type == "string" %}"{{value}}"{% else %}{{value}}{% endif %}
+    {{name}} = {% if model.value_type.type == "string" %}{{ value | py_quote('"') }}{% else %}{{ value | py_value }}{% endif %}
 
 {% endfor %}
 {% endif %}
@@ -51,12 +51,12 @@ class {{model.python_type_name}}{% if model.type == "enum" %}(enum.Enum){% endif
     }
     _formats_map = {
 {% for prop in model.properties if prop.format %}
-        '{{trn(prop.name)}}': '{{prop.format}}',
+        '{{trn(prop.name)}}': {{ prop.format | py_quote("'") }},
 {% endfor %}
     }
     _validations_map = {
 {% for prop in model.properties if prop.validations %}
-        '{{ trn(prop.name) }}': { {% for type, value in prop.validations.items() %}'{{ type }}': {% if type == "pattern" %}'{{ value }}'{% else %}{{ value }}{% endif %},{% endfor %}},
+        '{{ trn(prop.name) }}': { {% for type, value in prop.validations.items() %}'{{ type }}': {% if type == "pattern" %}{{ value | py_quote("'") }}{% else %}{{ value | py_value }}{% endif %},{% endfor %}},
 {% endfor %}
     }
 {% endif %}
@@ -67,7 +67,7 @@ class {{model.python_type_name}}{% if model.type == "enum" %}(enum.Enum){% endif
             , *args
 {% endif %}
 {% for prop in model.properties %}
-            , {{trn(prop.name)}}{% if use_types %}: {{ get_typing(prop, relativeTo=model) }}{% endif %}={% if prop.definition.string_type == "string" and prop.default is not none %}'{{prop.default}}'{% else %}{{prop.default}}{% endif %}
+            , {{trn(prop.name)}}{% if use_types %}: {{ get_typing(prop, relativeTo=model) }}{% endif %}={% if prop.definition.string_type == "string" and prop.default is not none %}{{ prop.default | py_quote("'") }}{% else %}{{ prop.default | py_value }}{% endif %}
 {% endfor %}
 {% if model.extends %}
             , **kwargs
@@ -77,7 +77,7 @@ class {{model.python_type_name}}{% if model.type == "enum" %}(enum.Enum){% endif
         """
 {% for prop in model.properties %}
 {% if prop.comment %}
-        :param {{ trn(prop.name) }}: {{ prop.comment | indent(12) }}
+        :param {{ trn(prop.name) }}: {{ prop.comment | py_docstring | indent(12) }}
 {% endif %}
 {% endfor %}
         """
@@ -105,7 +105,7 @@ class {{model.python_type_name}}{% if model.type == "enum" %}(enum.Enum){% endif
     {{trn(prop.name)}} = property(_get_{{trn(prop.name)}}, _set_{{trn(prop.name)}})
 {% if prop.comment %}
     """
-    {{ prop.comment | indent(4) }}
+    {{ prop.comment | py_docstring | indent(4) }}
     """
 {% endif %}
     

@@ -3,7 +3,7 @@ import os
 from typing import Dict, Callable, Any
 
 from jsonschema2popo import version
-from jsonschema2popo.classes import CodeGenPlugin
+from jsonschema2popo.classes import CodeGenPlugin, is_identifier
 from jsonschema2popo.python.python import Python
 
 
@@ -26,6 +26,9 @@ class Go(CodeGenPlugin):
 
     def extra_jinja_inputs(self) -> Dict[str, Any]:
         return {"package_name": self.package_name}
+
+    def is_valid_identifier(self, name: str, enum_member: bool = False) -> bool:
+        return is_identifier(name)
 
     def template(self) -> str:
         return "go_struct.tmpl"

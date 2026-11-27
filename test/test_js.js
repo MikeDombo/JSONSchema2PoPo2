@@ -179,6 +179,16 @@ f.test_jsonschema2popo_test_nested_enum = (filename) => {
     assertEquals(new test("a", test._prop2.First).prop2, test._prop2.First);
 }
 
+f.test_jsonschema2popo_test_special_values = (filename) => {
+    const foo = require("./" + filename);
+    const tricky = 'a\'b"c\\d */ """ /e\nf';
+    assertEquals(new foo.A().s, tricky);
+    assertEquals(foo.A.formatsMap.s, tricky);
+    assertEquals(foo.A.validationsMap.s.pattern.source, new RegExp(tricky).source);
+    assertEquals(foo.A.validationsMap.i.maximum, "1 + 1");
+    assertEquals(foo.E.X.asMap(), tricky);
+}
+
 const functionName = args[0].replace(/\./g, "_");
 if (functionName in f) {
     f[functionName](...args.slice(1))

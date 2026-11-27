@@ -31,6 +31,141 @@ from . import __version__
 
 logger = logging.getLogger("main")
 
+# Strings that were always pasted into the code unquoted and are kept that way (ignoring surrounding whitespace):
+# a number in any notation the languages accept (0x10, 1_000, 1e-3, 10n...), or a plain dotted name such as
+# True, null, Color.RED or -Infinity. Neither can call anything; any other string is quoted.
+UNQUOTED_RE = re.compile(
+    r"[+-]?(\.?\d[\w.]*([eE][+-]\d\w*)?|[^\W\d]\w*(\.[^\W\d]\w*)*)"
+)
+
+# Characters that end a single-line string literal, and whether a backslash may escape them (line continuation)
+LINE_BREAKS = {"python": ("\r\n", True), "js": ("\r\n", True), "go": ("\n", False)}
+
+
+def is_closed_docstring(s: str) -> bool:
+    """
+    Whether s can go between triple quotes as-is: no unescaped \"\"\" inside it. The template puts a newline after
+    the text, so a trailing backslash can't escape the closing quotes.
+    """
+    i = 0
+    while i < len(s):
+        if s[i] == "\\":
+            i += 2
+        elif s.startswith('"""', i):
+            return False
+        else:
+            i += 1
+    return True
+
+
+def is_closed_js_regex(s: str) -> bool:
+    """Whether /s/ is one complete JS regex literal (like old_literal, plus [...] classes)."""
+    if not s or s[0] == "*":
+        return False
+    in_class = False
+    i = 0
+    while i < len(s):
+        c = s[i]
+        if c in "\r\n\u2028\u2029":
+            return False
+        if c == "\\":
+            if i + 1 >= len(s) or s[i + 1] in "\r\n\u2028\u2029":
+                return False
+            i += 2
+            continue
+        if c == "[":
+            in_class = True
+        elif c == "]":
+            in_class = False
+        elif c == "/" and not in_class:
+            return False
+        i += 1
+    # An unclosed [ class would swallow the closing / and whatever follows it on the line
+    return not in_class
+
+
+def json_literal(v) -> str:
+    # U+2028/U+2029 are valid in JS strings but jsbeautifier turns them into line breaks, so escape them
+    return (
+        json.dumps(v, ensure_ascii=False)
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
+
+
+def old_literal(s: str, quote: str, language: str) -> Optional[str]:
+    """
+    quote + s + quote, as the templates used to emit it, if that is one complete string literal in the language:
+    every quote inside s is escaped, s does not end in an escaping backslash, and line breaks only appear as
+    line continuations where the language allows them. Escape sequences then mean exactly what they used to.
+    Raw U+2028/U+2029 are escaped (same value) because jsbeautifier would turn them into line breaks.
+    Returns None if the old form was not a complete literal.
+    """
+    breaks, continuation = LINE_BREAKS[language]
+    out = []
+    i = 0
+    while i < len(s):
+        c = s[i]
+        if c == "\\":
+            if i + 1 >= len(s) or (s[i + 1] in breaks and not continuation):
+                return None
+            j = i + 3 if s.startswith("\r\n", i + 1) else i + 2
+            out.append(s[i:j])
+            i = j
+            continue
+        if s.startswith(quote, i) or c in breaks:
+            return None
+        out.append("\\u%04x" % ord(c) if c in "\u2028\u2029" else c)
+        i += 1
+    return quote + "".join(out) + quote
+
+
+def py_quote(v, quote: str) -> str:
+    """A Python string literal for v: the old quote + v + quote when that was already a complete literal."""
+    s = str(v)
+    return old_literal(s, quote, "python") or repr(s)
+
+
+def json_quote(v, quote: str, language: str = "js") -> str:
+    """A JS/Go string literal for v: the old quote + v + quote when that was already a complete literal."""
+    s = str(v)
+    return old_literal(s, quote, language) or json_literal(s)
+
+
+def unquoted(v) -> Optional[str]:
+    """The text a string value used to be pasted in as, if it is a number or a plain name; otherwise None."""
+    t = v.strip()
+    return t if UNQUOTED_RE.fullmatch(t) else None
+
+
+def py_value(v) -> str:
+    """Python source for a value that was emitted unquoted: as before, except strings that aren't numbers or names are quoted."""
+    if isinstance(v, str):
+        return unquoted(v) or repr(v)
+    return str(v)
+
+
+def json_value(v) -> str:
+    """JS/Go source for a value that was emitted unquoted: numbers and names as before, everything else as JSON."""
+    if isinstance(v, str):
+        return unquoted(v) or json_literal(v)
+    return json_literal(v)
+
+
+def py_docstring(s: str) -> str:
+    """Docstring text, unchanged unless it would end the docstring early; then every '"' is escaped."""
+    return s if is_closed_docstring(s) else s.replace('"', '\\"')
+
+
+def js_regex(v) -> str:
+    s = str(v)
+    return (
+        "/" + s + "/"
+        if is_closed_js_regex(s)
+        else "new RegExp(" + json_literal(s) + ")"
+    )
+
+
 J2P_TYPES = {
     "string": str,
     "integer": int,
@@ -101,6 +236,17 @@ class JsonSchema2Popo:
             find, replace, s
         )
         self.jinja.globals["trn"] = self.maybe_translate_property_name
+        # Values from the schema are emitted as literals, never pasted into the generated source as code.
+        self.jinja.filters.update(
+            py_quote=py_quote,
+            py_value=py_value,
+            py_docstring=py_docstring,
+            json_literal=json_literal,
+            json_quote=json_quote,
+            json_value=json_value,
+            js_regex=js_regex,
+        )
+        self.jinja.filters["block_comment"] = lambda s: s.replace("*/", "*\\/")
         self.jinja.filters["trn"] = self.maybe_translate_property_name
 
         jinja_globals = self.module.jinja_globals()
@@ -405,12 +551,14 @@ class JsonSchema2Popo:
         return model
 
     def write_file(self, filename):
+        if not self.custom_template:
+            self.check_names()
         template = self.custom_template or self.module.template()
         self.jinja.get_template(template).stream(
             models=self.definitions,
             enum_used=self.enum_used,
             list_used=self.list_used,
-            **self.module.extra_jinja_inputs()
+            **self.module.extra_jinja_inputs(),
         ).dump(filename)
         if hasattr(filename, "close"):
             filename.close()
@@ -421,6 +569,60 @@ class JsonSchema2Popo:
             return name
         s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
         return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+
+    def check_names(self):
+        """Check every name the built-in templates emit as an identifier, for what is actually generated."""
+        seen = set()
+
+        def check_path(d: Definition):
+            # A type is emitted by its full path, e.g. Parent._child
+            for a in d.ancestors():
+                if a.name is not None:
+                    self.check_identifier(a.name, "Type or property")
+
+        def visit(d: Optional[Definition]):
+            if d is None or id(d) in seen:
+                return
+            seen.add(id(d))
+            check_path(d)
+            if isinstance(d, ReferenceNode):
+                if d.value is not None:
+                    check_path(d.value)
+                return
+            if getattr(d, "extends", None) is not None:
+                check_path(d.extends)
+            if isinstance(d, ListNode):
+                visit(d.item_type)
+            if isinstance(d, EnumNode):
+                for name in d.values:
+                    self.check_identifier(
+                        name,
+                        "Enum member",
+                        enum_member=True,
+                        hint=" Enum member names are the enum values, or javaEnumNames if given.",
+                    )
+            for p in getattr(d, "properties", None) or []:
+                self.check_identifier(p.name, "Type or property")
+                visit(p.definition)
+            for c in d.children:
+                visit(c)
+
+        for model in self.definitions:
+            visit(model)
+
+    def check_identifier(self, name, kind: str, enum_member=False, hint=""):
+        """
+        Names from the schema are emitted as identifiers, so they must be identifiers in the target language.
+        Type and property names have '-' and '.' replaced with '_' first; enum member names are used as-is.
+        """
+        candidate = str(name)
+        if not enum_member:
+            candidate = candidate.replace("-", "_").replace(".", "_")
+        if not self.module.is_valid_identifier(candidate, enum_member=enum_member):
+            raise ValueError(
+                f"{kind} name {name!r} cannot be used as an identifier in the generated "
+                f"{self.module.plugin_name()} code.{hint}"
+            )
 
     def translate_type_name(self, name):
         name = name.replace("-", "_").replace(".", "_")
