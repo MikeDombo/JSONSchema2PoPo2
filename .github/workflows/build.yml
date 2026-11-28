@@ -6,6 +6,8 @@ on:
       - master
   pull_request:
     branches: '*'
+  # Lets a publish be started by hand from the Actions tab
+  workflow_dispatch:
 
 jobs:
   build:
@@ -51,6 +53,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
+    # Publishes with PyPI trusted publishing, so no PyPI token or password is stored in GitHub.
+    # The project's trusted publisher on PyPI must name this repository, build.yml and the "pypi" environment.
+    environment: pypi
+    permissions:
+      id-token: write
     steps:
     - uses: actions/checkout@v5
       with:
@@ -66,9 +73,9 @@ jobs:
     - name: Build
       run: python -m build
     - name: Publish
-      if: github.event_name == 'push'
-      env:
-        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-      run: twine upload dist/*
-      continue-on-error: true
+      if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        # Pushes that don't bump the version are skipped instead of failing,
+        # but any other upload error (such as authentication) fails the run
+        skip-existing: true
